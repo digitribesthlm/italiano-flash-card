@@ -4,6 +4,7 @@ import { GoogleGenAI, Modality } from '@google/genai';
 import { Word, LanguageMode } from './types';
 import { DECKS } from './data/words';
 import Flashcard from './components/Flashcard';
+import { fetchProgress, postAttempt, fetchStats } from './api';
 
 // Audio Helpers
 function decode(base64: string) {
@@ -38,6 +39,21 @@ async function decodeAudioData(
 const STORAGE_KEY_STREAKS = 'italiano_flash_card_streaks';
 const STORAGE_KEY_MASTERED = 'italiano_flash_mastered_ids';
 const STORAGE_KEY_AUTH = 'italiano_flash_auth';
+const STORAGE_KEY_USER = 'italiano_flash_user';
+
+type PracticeMode = 'mixed' | 'hard' | 'mastered';
+
+function getAllWords(): Word[] {
+  return Object.values(DECKS).flat();
+}
+
+function getHardWordIds(cardStreaks: Record<string, number>, learningIds: Set<string>, statsHardIds: string[]): string[] {
+  const fromLocal = new Set<string>();
+  Object.entries(cardStreaks).forEach(([id, streak]) => { if (streak <= -2) fromLocal.add(id); });
+  learningIds.forEach((id) => fromLocal.add(id));
+  statsHardIds.forEach((id) => fromLocal.add(id));
+  return Array.from(fromLocal);
+}
 
 const App: React.FC = () => {
   const [activeDeckKey, setActiveDeckKey] = useState<keyof typeof DECKS>('CLASSIC');
@@ -54,6 +70,11 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [stats, setStats] = useState<{ dailyAttempts: number; weeklyAttempts: number; hardWordIds: string[] } | null>(null);
+  const [progressLoadedFromApi, setProgressLoadedFromApi] = useState(false);
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>('mixed');
+  const [showHardList, setShowHardList] = useState(false);
   
   // Audio context persistence
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -86,27 +107,74 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY_AUTH);
-    if (stored === 'true') {
+    const user = localStorage.getItem(STORAGE_KEY_USER);
+    if (stored === 'true' && user) {
       setIsAuthenticated(true);
+      setCurrentUser(user);
     }
   }, []);
 
-  // Handle deck changes
+  // When logged in, sync progress and stats from MongoDB
   useEffect(() => {
-    shuffle(false);
-  }, [activeDeckKey]);
+    if (!isAuthenticated || !currentUser) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [progressData, statsData] = await Promise.all([
+          fetchProgress(currentUser),
+          fetchStats(currentUser),
+        ]);
+        if (cancelled) return;
+        if (progressData.wordStreaks && Object.keys(progressData.wordStreaks).length > 0) {
+          setCardStreaks(progressData.wordStreaks);
+        }
+        if (progressData.masteredIds?.length) {
+          setMasteredIds(new Set(progressData.masteredIds));
+        }
+        if (progressData.learningIds?.length) {
+          setLearningIds(new Set(progressData.learningIds));
+        }
+        setProgressLoadedFromApi(true);
+        setStats({
+          dailyAttempts: statsData.dailyAttempts ?? 0,
+          weeklyAttempts: statsData.weeklyAttempts ?? 0,
+          hardWordIds: statsData.hardWordIds ?? [],
+        });
+      } catch (_) {
+        // API unavailable (e.g. server not running); keep using localStorage
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, currentUser]);
 
-  const shuffle = (difficultOnly: boolean = false) => {
-    let baseList = [...DECKS[activeDeckKey]];
-    
-    if (difficultOnly) {
-      baseList = baseList.filter(w => (cardStreaks[w.id] || 0) <= -3 || learningIds.has(w.id));
+  // Handle deck changes and practice mode
+  useEffect(() => {
+    shuffleWithMode(practiceMode);
+  }, [activeDeckKey, practiceMode]);
+
+  // After loading progress from API, reshuffle so deck reflects server state
+  useEffect(() => {
+    if (!progressLoadedFromApi) return;
+    setProgressLoadedFromApi(false);
+    shuffleWithMode(practiceMode);
+  }, [progressLoadedFromApi]);
+
+  const shuffleWithMode = (mode: PracticeMode) => {
+    let baseList: Word[] = [...DECKS[activeDeckKey]];
+    const hardIds = getHardWordIds(cardStreaks, learningIds, stats?.hardWordIds ?? []);
+
+    if (mode === 'hard') {
+      baseList = baseList.filter((w) => (cardStreaks[w.id] || 0) <= -2 || learningIds.has(w.id) || hardIds.includes(w.id));
+      if (baseList.length === 0) baseList = [...DECKS[activeDeckKey]];
+    } else if (mode === 'mastered') {
+      baseList = baseList.filter((w) => masteredIds.has(w.id));
       if (baseList.length === 0) baseList = [...DECKS[activeDeckKey]];
     }
+    // 'mixed' = full deck (mastered words stay in so they get reviewed Duolingo-style)
 
     const shuffled = baseList.sort(() => Math.random() - 0.5);
     setShuffledVocab(shuffled);
-    setIsDifficultOnly(difficultOnly && baseList.length > 0);
+    setIsDifficultOnly(mode === 'hard' && baseList.length > 0);
     setCurrentIndex(0);
     setIsFlipped(false);
     setAiContext(null);
@@ -121,7 +189,9 @@ const App: React.FC = () => {
 
     if (loginUsername === expectedUser && loginPassword === expectedPassword) {
       setIsAuthenticated(true);
+      setCurrentUser(loginUsername);
       localStorage.setItem(STORAGE_KEY_AUTH, 'true');
+      localStorage.setItem(STORAGE_KEY_USER, loginUsername);
       setLoginError(null);
       setLoginPassword('');
     } else {
@@ -153,7 +223,16 @@ const App: React.FC = () => {
 
   const markPerformance = (status: 'mastered' | 'learning') => {
     const wordId = currentWord.id;
-    
+    if (currentUser) {
+      postAttempt(currentUser, wordId, activeDeckKey, status).catch(() => {}).then(() => {
+        fetchStats(currentUser).then((s) => setStats({
+          dailyAttempts: s.dailyAttempts ?? 0,
+          weeklyAttempts: s.weeklyAttempts ?? 0,
+          hardWordIds: s.hardWordIds ?? [],
+        })).catch(() => {});
+      });
+    }
+
     setCardStreaks(prev => {
       const currentStreak = prev[wordId] || 0;
       let newStreak = 0;
@@ -366,14 +445,14 @@ const App: React.FC = () => {
 
           <div className="flex flex-col gap-3 w-full">
             <button 
-              onClick={() => shuffle(true)}
+              onClick={() => shuffleWithMode('hard')}
               className="w-full py-4 bg-orange-500 text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-xl shadow-orange-100 active:scale-95 flex items-center justify-center gap-2"
             >
               <i className="fa-solid fa-bolt"></i>
-              Focus on Struggles
+              Focus on Hard Words
             </button>
             <button 
-              onClick={() => shuffle(false)}
+              onClick={() => shuffleWithMode(practiceMode)}
               className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-all shadow-xl active:scale-95"
             >
               Restart Deck
@@ -384,8 +463,44 @@ const App: React.FC = () => {
     );
   }
 
+  const hardIds = getHardWordIds(cardStreaks, learningIds, stats?.hardWordIds ?? []);
+  const hardWordsList = getAllWords().filter((w) => hardIds.includes(w.id));
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center pb-32 overflow-x-hidden">
+      {showHardList && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={() => setShowHardList(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-sm font-black text-gray-900">🔥 Hard words</h3>
+              <button type="button" onClick={() => setShowHardList(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                <i className="fa-solid fa-xmark" />
+              </button>
+            </div>
+            <ul className="p-4 overflow-y-auto flex-1 space-y-2">
+              {hardWordsList.length === 0 ? (
+                <li className="text-gray-500 text-sm">No hard words yet. Keep practicing!</li>
+              ) : (
+                hardWordsList.map((w) => (
+                  <li key={w.id} className="flex justify-between items-center py-2 px-3 bg-rose-50/50 rounded-xl border border-rose-100">
+                    <span className="text-gray-800 font-medium text-sm">{w.en}</span>
+                    <span className="text-rose-600 text-sm font-medium">{w.it}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+            <div className="p-4 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => { setShowHardList(false); setPracticeMode('hard'); shuffleWithMode('hard'); }}
+                className="w-full py-3 bg-rose-500 text-white rounded-xl text-sm font-bold hover:bg-rose-600 transition-colors"
+              >
+                Practice these words
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <header className="w-full bg-white border-b border-gray-200 py-3 px-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="flex flex-col">
@@ -406,9 +521,42 @@ const App: React.FC = () => {
             <option value="VLOG">🎬 Vlog Session</option>
             <option value="PRADA">👗 Prada List</option>
           </select>
+          <select
+            value={practiceMode}
+            onChange={(e) => setPracticeMode(e.target.value as PracticeMode)}
+            className="bg-gray-100 text-[10px] font-black uppercase px-2 py-1 rounded-lg border-none focus:ring-2 focus:ring-emerald-500 text-gray-600 cursor-pointer"
+            title="Practice mode"
+          >
+            <option value="mixed">🔄 Mixed</option>
+            <option value="hard">🔥 Hard</option>
+            <option value="mastered">✅ Mastered</option>
+          </select>
+          {getHardWordIds(cardStreaks, learningIds, stats?.hardWordIds ?? []).length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowHardList(true)}
+              className="bg-rose-50 text-rose-600 px-2 py-1 rounded-lg text-[10px] font-black uppercase border border-rose-200 hover:bg-rose-100 transition-colors flex items-center gap-1"
+              title="View hard words list"
+            >
+              🔥 List
+            </button>
+          )}
         </div>
         
         <div className="flex items-center gap-2">
+          {stats != null && (
+            <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-full border border-slate-200 text-[10px] font-bold text-slate-600">
+              <span title="Today">📅 {stats.dailyAttempts}</span>
+              <span className="text-slate-300">|</span>
+              <span title="This week">📆 {stats.weeklyAttempts}</span>
+              {stats.hardWordIds.length > 0 && (
+                <>
+                  <span className="text-slate-300">|</span>
+                  <span title="Hard words to review">🔥 {stats.hardWordIds.length}</span>
+                </>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-1.5 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-100">
             <i className="fa-solid fa-star text-yellow-500 text-[10px]"></i>
             <span className="text-xs font-black text-yellow-700">{score}</span>
@@ -429,10 +577,9 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
               Deck: {activeDeckKey === 'VLOG' ? 'Vlog' : activeDeckKey === 'PRADA' ? 'Prada' : 'Classic'}
+              {practiceMode === 'hard' && ' · Hard'}
+              {practiceMode === 'mastered' && ' · Mastered'}
             </span>
-            {isDifficultOnly && (
-              <span className="bg-orange-100 text-orange-600 text-[9px] font-black uppercase px-1.5 py-0.5 rounded">Mistakes Mode</span>
-            )}
           </div>
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{currentIndex + 1} / {totalInCurrentDeck}</span>
         </div>
@@ -514,7 +661,7 @@ const App: React.FC = () => {
         </button>
 
         <button 
-          onClick={() => shuffle(isDifficultOnly)}
+          onClick={() => shuffleWithMode(practiceMode)}
           className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center text-white hover:bg-emerald-600 transition-all active:rotate-180 shadow-lg"
         >
           <i className="fa-solid fa-rotate text-lg"></i>
