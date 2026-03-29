@@ -200,8 +200,62 @@ export const VOCABULARY_PRADA: Word[] = [
   { id: 'p50', en: 'nobody, no one', it: 'nessuno', category: 'grammar' }
 ];
 
+export const VOCABULARY_TIS: Word[] = [
+  { id: 'tis1', en: 'production', it: 'produzione', category: 'content' },
+  { id: 'tis2', en: 'Italy', it: 'Italia', category: 'content' },
+  { id: 'tis3', en: 'film', it: 'film', category: 'content' },
+  { id: 'tis4', en: 'company', it: 'azienda', category: 'content' },
+  { id: 'tis5', en: 'vitamin', it: 'vitamina', category: 'content' },
+  { id: 'tis6', en: 'facility', it: 'stabilimento', category: 'content' },
+  { id: 'tis7', en: 'IBSA', it: 'IBSA', category: 'content' },
+  { id: 'tis8', en: 'supplements', it: 'integratori', category: 'content' },
+  { id: 'tis9', en: 'product', it: 'prodotto', category: 'content' },
+  { id: 'tis10', en: 'pharmaceutical', it: 'farmaceutico', category: 'content' },
+  { id: 'tis11', en: 'to produce', it: 'produrre', category: 'content' },
+  { id: 'tis12', en: 'pharma', it: 'farmaceutica', category: 'content' },
+  { id: 'tis13', en: 'technology', it: 'tecnologia', category: 'content' },
+  { id: 'tis14', en: 'drugs', it: 'farmaci', category: 'content' },
+  { id: 'tis15', en: 'products', it: 'prodotti', category: 'content' },
+  { id: 'tis16', en: 'Italian', it: 'italiano', category: 'content' },
+  { id: 'tis17', en: 'iron', it: 'ferro', category: 'content' },
+  { id: 'tis18', en: 'process', it: 'processo', category: 'content' },
+  { id: 'tis19', en: 'group', it: 'gruppo', category: 'content' },
+  { id: 'tis20', en: 'films', it: 'film orodispersibili', category: 'content' },
+  { id: 'tis21', en: 'patients', it: 'pazienti', category: 'content' },
+  { id: 'tis22', en: 'important', it: 'importante', category: 'content' },
+  { id: 'tis23', en: 'million', it: 'milione', category: 'content' },
+  { id: 'tis24', en: 'FilmTec', it: 'FilmTec', category: 'content' },
+  { id: 'tis25', en: 'quality', it: 'qualità', category: 'content' },
+  { id: 'tis26', en: 'ingredient', it: 'ingrediente', category: 'content' },
+  { id: 'tis27', en: 'machine', it: 'macchina', category: 'content' },
+  { id: 'tis28', en: 'batch', it: 'lotto', category: 'content' },
+  { id: 'tis29', en: 'industrial', it: 'industriale', category: 'content' },
+  { id: 'tis30', en: 'market', it: 'mercato', category: 'content' },
+  { id: 'tis31', en: 'ingredients', it: 'ingredienti', category: 'content' },
+  { id: 'tis32', en: 'patents', it: 'brevetti', category: 'content' },
+  { id: 'tis33', en: 'daily', it: 'quotidiano', category: 'content' },
+  { id: 'tis34', en: 'water', it: 'acqua', category: 'content' },
+  { id: 'tis35', en: 'to cut', it: 'tagliare', category: 'content' },
+  { id: 'tis36', en: 'reel', it: 'bobina', category: 'content' },
+  { id: 'tis37', en: 'revenue', it: 'fatturato', category: 'content' },
+  { id: 'tis38', en: 'reality', it: 'realtà', category: 'content' },
+  { id: 'tis39', en: 'countries', it: 'paesi', category: 'content' },
+  { id: 'tis40', en: 'form', it: 'forma', category: 'content' },
+  { id: 'tis41', en: 'hyaluronic', it: 'ialuronico', category: 'content' },
+  { id: 'tis42', en: 'idea', it: 'idea', category: 'content' },
+  { id: 'tis43', en: 'different', it: 'diverso', category: 'content' },
+  { id: 'tis44', en: 'millions', it: 'milioni', category: 'content' },
+  { id: 'tis45', en: 'inside', it: 'interno', category: 'content' },
+  { id: 'tis46', en: 'sachet', it: 'bustina', category: 'content' },
+  { id: 'tis47', en: 'manager', it: 'manager', category: 'content' },
+  { id: 'tis48', en: 'offices', it: 'uffici', category: 'content' },
+  { id: 'tis49', en: 'facilities', it: 'impianti', category: 'content' },
+  { id: 'tis50', en: 'acid', it: 'acido', category: 'content' }
+];
+
 export const DECKS = {
   CLASSIC: VOCABULARY_CLASSIC,
   VLOG: VOCABULARY_VLOG,
-  PRADA: VOCABULARY_PRADA
+  PRADA: VOCABULARY_PRADA,
+  TIS: VOCABULARY_TIS
 };

@@ -520,6 +520,7 @@ const App: React.FC = () => {
             <option value="CLASSIC">📚 Cultural</option>
             <option value="VLOG">🎬 Vlog Session</option>
             <option value="PRADA">👗 Prada List</option>
+            <option value="TIS">💊 TIS Pharma</option>
           </select>
           <select
             value={practiceMode}
