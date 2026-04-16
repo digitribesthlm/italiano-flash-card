@@ -291,10 +291,40 @@ export const VOCABULARY_ADVERBS: Word[] = [
   { id: 'a30', en: 'so / like this', it: 'così', category: 'grammar' },
 ];
 
+export const VOCABULARY_PHRASES: Word[] = [
+  // Greetings & Introductions
+  { id: 'ph1', en: 'Hi, how (…are you?)', it: 'Ciao, come', category: 'content' },
+  { id: 'ph2', en: 'My name is…', it: 'Mi chiamo', category: 'content' },
+  { id: 'ph3', en: "I'm from…", it: 'Sono di', category: 'content' },
+  // Getting Help
+  { id: 'ph4', en: 'Do you speak English?', it: 'Parli inglese', category: 'content' },
+  { id: 'ph5', en: "I don't understand", it: 'Non capisco', category: 'content' },
+  { id: 'ph6', en: 'Can you repeat?', it: 'Puoi ripetere', category: 'content' },
+  // Navigating & Buying
+  { id: 'ph7', en: 'Where is…', it: 'Dove si trova', category: 'content' },
+  { id: 'ph8', en: 'How much does it cost?', it: 'Quanto costa', category: 'content' },
+  { id: 'ph9', en: 'I would like a…', it: 'Vorrei un', category: 'content' },
+  // Social Phrases
+  { id: 'ph10', en: "It's fine / okay", it: 'Va bene', category: 'content' },
+  { id: 'ph11', en: "I'm sorry", it: 'Mi dispiace', category: 'content' },
+  { id: 'ph12', en: 'Thank you very much', it: 'Grazie, mille', category: 'content' },
+  { id: 'ph13', en: "You're welcome", it: 'Di niente', category: 'content' },
+  // Question Starters
+  { id: 'ph14', en: 'What… (…do you do / …is this?)', it: 'Che cosa', category: 'content' },
+  { id: 'ph15', en: 'How long (…have you been here?)', it: 'Da quanto', category: 'content' },
+  { id: 'ph16', en: 'At what time…', it: 'A che ora', category: 'content' },
+  { id: 'ph17', en: 'What is… (…your name / your number?)', it: 'Qual è', category: 'content' },
+  // Opinions & Agreement
+  { id: 'ph18', en: 'I prefer to take… (the train / bus)', it: 'Preferisco prendere', category: 'content' },
+  { id: 'ph19', en: "You're right", it: 'Hai ragione', category: 'content' },
+  { id: 'ph20', en: 'Me too', it: "Anch'io", category: 'content' },
+];
+
 export const DECKS = {
   CLASSIC: VOCABULARY_CLASSIC,
   VLOG: VOCABULARY_VLOG,
   PRADA: VOCABULARY_PRADA,
   TIS: VOCABULARY_TIS,
   ADVERBS: VOCABULARY_ADVERBS,
+  PHRASES: VOCABULARY_PHRASES,
 };
