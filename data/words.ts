@@ -320,6 +320,57 @@ export const VOCABULARY_PHRASES: Word[] = [
   { id: 'ph20', en: 'Me too', it: "Anch'io", category: 'content' },
 ];
 
+export const VOCABULARY_YOUTUBE: Word[] = [
+  // Food & Agriculture
+  { id: 'yt1', en: 'tomato', it: 'pomodoro', category: 'content' },
+  { id: 'yt2', en: 'harvest', it: 'raccolto', category: 'content' },
+  { id: 'yt3', en: 'harvest season / countryside', it: 'campagna', category: 'content' },
+  { id: 'yt4', en: 'soil / land', it: 'terreno', category: 'content' },
+  { id: 'yt5', en: 'field', it: 'campo', category: 'content' },
+  { id: 'yt6', en: 'to grow / cultivate', it: 'coltivare', category: 'content' },
+  { id: 'yt7', en: 'to harvest / collect', it: 'raccogliere', category: 'content' },
+  { id: 'yt8', en: 'supplier', it: 'fornitore', category: 'content' },
+  { id: 'yt9', en: 'farmer', it: 'agricoltore', category: 'content' },
+  { id: 'yt10', en: 'processing', it: 'lavorazione', category: 'content' },
+  // Production & Process
+  { id: 'yt11', en: 'selection', it: 'selezione', category: 'content' },
+  { id: 'yt12', en: 'phase / stage', it: 'fase', category: 'content' },
+  { id: 'yt13', en: 'check / control', it: 'controllo', category: 'content' },
+  { id: 'yt14', en: 'analysis', it: 'analisi', category: 'content' },
+  { id: 'yt15', en: 'smell', it: 'odore', category: 'content' },
+  { id: 'yt16', en: 'taste / flavor', it: 'sapore', category: 'content' },
+  // Colors
+  { id: 'yt17', en: 'red', it: 'rosso', category: 'content' },
+  { id: 'yt18', en: 'green', it: 'verde', category: 'content' },
+  { id: 'yt19', en: 'yellow', it: 'giallo', category: 'content' },
+  // Adjectives
+  { id: 'yt20', en: 'fresh', it: 'fresco', category: 'content' },
+  { id: 'yt21', en: 'perfect', it: 'perfetto', category: 'content' },
+  { id: 'yt22', en: 'fundamental / essential', it: 'fondamentale', category: 'content' },
+  { id: 'yt23', en: 'special', it: 'speciale', category: 'content' },
+  { id: 'yt24', en: 'unique', it: 'unico', category: 'content' },
+  { id: 'yt25', en: 'ready', it: 'pronto', category: 'content' },
+  { id: 'yt26', en: 'young', it: 'giovane', category: 'content' },
+  // Places & Position
+  { id: 'yt27', en: 'inside', it: 'dentro', category: 'grammar' },
+  { id: 'yt28', en: 'outside', it: 'fuori', category: 'grammar' },
+  // Time
+  { id: 'yt29', en: 'yesterday', it: 'ieri', category: 'grammar' },
+  { id: 'yt30', en: 'night', it: 'notte', category: 'content' },
+  { id: 'yt31', en: 'moment', it: 'momento', category: 'content' },
+  { id: 'yt32', en: 'time (instance)', it: 'volta', category: 'content' },
+  // Daily Life
+  { id: 'yt33', en: 'lunch', it: 'pranzo', category: 'content' },
+  { id: 'yt34', en: 'money', it: 'soldi', category: 'content' },
+  { id: 'yt35', en: 'work / job', it: 'lavoro', category: 'content' },
+  // Abstract / Concepts
+  { id: 'yt36', en: 'tradition', it: 'tradizione', category: 'content' },
+  { id: 'yt37', en: 'experience', it: 'esperienza', category: 'content' },
+  { id: 'yt38', en: 'innovation', it: 'innovazione', category: 'content' },
+  { id: 'yt39', en: 'research', it: 'ricerca', category: 'content' },
+  { id: 'yt40', en: 'project', it: 'progetto', category: 'content' },
+];
+
 export const DECKS = {
   CLASSIC: VOCABULARY_CLASSIC,
   VLOG: VOCABULARY_VLOG,
@@ -327,4 +378,5 @@ export const DECKS = {
   TIS: VOCABULARY_TIS,
   ADVERBS: VOCABULARY_ADVERBS,
   PHRASES: VOCABULARY_PHRASES,
+  YOUTUBE: VOCABULARY_YOUTUBE,
 };

@@ -523,6 +523,7 @@ const App: React.FC = () => {
             <option value="TIS">💊 TIS Pharma</option>
             <option value="ADVERBS">🎯 Adverbs & Questions</option>
             <option value="PHRASES">💬 Phrases</option>
+            <option value="YOUTUBE">🍅 Mutti</option>
           </select>
           <select
             value={practiceMode}
@@ -579,7 +580,7 @@ const App: React.FC = () => {
         <div className="flex justify-between items-end mb-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Deck: {activeDeckKey === 'VLOG' ? 'Vlog' : activeDeckKey === 'PRADA' ? 'Prada' : activeDeckKey === 'TIS' ? 'TIS' : activeDeckKey === 'ADVERBS' ? 'Adverbs' : activeDeckKey === 'PHRASES' ? 'Phrases' : 'Classic'}
+              Deck: {activeDeckKey === 'VLOG' ? 'Vlog' : activeDeckKey === 'PRADA' ? 'Prada' : activeDeckKey === 'TIS' ? 'TIS' : activeDeckKey === 'ADVERBS' ? 'Adverbs' : activeDeckKey === 'PHRASES' ? 'Phrases' : activeDeckKey === 'YOUTUBE' ? 'Mutti' : 'Classic'}
               {practiceMode === 'hard' && ' · Hard'}
               {practiceMode === 'mastered' && ' · Mastered'}
             </span>
