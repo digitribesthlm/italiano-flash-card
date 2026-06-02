@@ -1,205 +1,49 @@
-// Seed script: uploads all vocabulary decks to the flash_decks collection in MongoDB.
-// Run with: node seed_decks.js
-// Existing documents for a deckKey are replaced to keep the collection idempotent.
-
+// Seed all 8 vocabulary decks to MongoDB flash_decks collection.
+// Run: node seed_decks.js
 import dotenv from 'dotenv';
 import { MongoClient } from 'mongodb';
-
 dotenv.config({ path: '.env.local' });
 
-const MONGODB_URI = process.env.MONGODB_URL_TASK_MANAGER;
-const DB_NAME = process.env.DATABASE_NAME_TASK_MANAGER || 'task-manager';
-const COLLECTION = 'flash_decks';
+const URI = process.env.MONGODB_URL_TASK_MANAGER;
+const DB = process.env.DATABASE_NAME_TASK_MANAGER || 'task-manager';
+const COL = 'flash_decks';
 
-const VOCABULARY_ADVERBS = [
-  // Demonstratives & Location
-  { id: 'a1', en: 'that (over there)', it: 'quello / quella', category: 'grammar' },
-  { id: 'a2', en: 'here', it: 'qui / qua', category: 'grammar' },
-  { id: 'a3', en: 'there', it: 'lì / là', category: 'grammar' },
-  // Question Words
-  { id: 'a4', en: 'how / like', it: 'come', category: 'grammar' },
-  { id: 'a5', en: 'when', it: 'quando', category: 'grammar' },
-  { id: 'a6', en: 'where', it: 'dove', category: 'grammar' },
-  { id: 'a7', en: 'why / because', it: 'perché', category: 'grammar' },
-  { id: 'a8', en: 'how much', it: 'quanto', category: 'grammar' },
-  { id: 'a9', en: 'which', it: 'quale', category: 'grammar' },
-  { id: 'a10', en: 'who', it: 'chi', category: 'grammar' },
-  { id: 'a11', en: 'what', it: 'cosa / che cosa', category: 'grammar' },
-  // Quantifiers & Indefinite Pronouns
-  { id: 'a12', en: 'every', it: 'ogni', category: 'grammar' },
-  { id: 'a13', en: 'everything / all', it: 'tutto / tutta', category: 'grammar' },
-  { id: 'a14', en: 'nothing', it: 'niente / nulla', category: 'grammar' },
-  { id: 'a15', en: 'something', it: 'qualcosa', category: 'grammar' },
-  { id: 'a16', en: 'someone', it: 'qualcuno', category: 'grammar' },
-  { id: 'a17', en: 'nobody', it: 'nessuno', category: 'grammar' },
-  // Frequency & Time Adverbs
-  { id: 'a18', en: 'still / again / yet', it: 'ancora', category: 'grammar' },
-  { id: 'a19', en: 'already', it: 'già', category: 'grammar' },
-  { id: 'a20', en: 'always', it: 'sempre', category: 'grammar' },
-  { id: 'a21', en: 'never', it: 'mai', category: 'grammar' },
-  { id: 'a22', en: 'often', it: 'spesso', category: 'grammar' },
-  { id: 'a23', en: 'immediately', it: 'subito', category: 'grammar' },
-  // Manner & Discourse Adverbs
-  { id: 'a24', en: 'together', it: 'insieme', category: 'grammar' },
-  { id: 'a25', en: 'maybe', it: 'forse', category: 'grammar' },
-  { id: 'a26', en: 'anyway', it: 'comunque', category: 'grammar' },
-  { id: 'a27', en: 'however', it: 'però', category: 'grammar' },
-  { id: 'a28', en: 'also / too', it: 'anche', category: 'grammar' },
-  { id: 'a29', en: 'only / just', it: 'solo', category: 'grammar' },
-  { id: 'a30', en: 'so / like this', it: 'così', category: 'grammar' },
-];
-
-const VOCABULARY_YOUTUBE = [
-  // Food & Agriculture
-  { id: 'yt1', en: 'tomato', it: 'pomodoro', category: 'content' },
-  { id: 'yt2', en: 'harvest', it: 'raccolto', category: 'content' },
-  { id: 'yt3', en: 'harvest season / countryside', it: 'campagna', category: 'content' },
-  { id: 'yt4', en: 'soil / land', it: 'terreno', category: 'content' },
-  { id: 'yt5', en: 'field', it: 'campo', category: 'content' },
-  { id: 'yt6', en: 'to grow / cultivate', it: 'coltivare', category: 'content' },
-  { id: 'yt7', en: 'to harvest / collect', it: 'raccogliere', category: 'content' },
-  { id: 'yt8', en: 'supplier', it: 'fornitore', category: 'content' },
-  { id: 'yt9', en: 'farmer', it: 'agricoltore', category: 'content' },
-  { id: 'yt10', en: 'processing', it: 'lavorazione', category: 'content' },
-  // Production & Process
-  { id: 'yt11', en: 'selection', it: 'selezione', category: 'content' },
-  { id: 'yt12', en: 'phase / stage', it: 'fase', category: 'content' },
-  { id: 'yt13', en: 'check / control', it: 'controllo', category: 'content' },
-  { id: 'yt14', en: 'analysis', it: 'analisi', category: 'content' },
-  { id: 'yt15', en: 'smell', it: 'odore', category: 'content' },
-  { id: 'yt16', en: 'taste / flavor', it: 'sapore', category: 'content' },
-  // Colors
-  { id: 'yt17', en: 'red', it: 'rosso', category: 'content' },
-  { id: 'yt18', en: 'green', it: 'verde', category: 'content' },
-  { id: 'yt19', en: 'yellow', it: 'giallo', category: 'content' },
-  // Adjectives
-  { id: 'yt20', en: 'fresh', it: 'fresco', category: 'content' },
-  { id: 'yt21', en: 'perfect', it: 'perfetto', category: 'content' },
-  { id: 'yt22', en: 'fundamental / essential', it: 'fondamentale', category: 'content' },
-  { id: 'yt23', en: 'special', it: 'speciale', category: 'content' },
-  { id: 'yt24', en: 'unique', it: 'unico', category: 'content' },
-  { id: 'yt25', en: 'ready', it: 'pronto', category: 'content' },
-  { id: 'yt26', en: 'young', it: 'giovane', category: 'content' },
-  // Places & Position
-  { id: 'yt27', en: 'inside', it: 'dentro', category: 'grammar' },
-  { id: 'yt28', en: 'outside', it: 'fuori', category: 'grammar' },
-  // Time
-  { id: 'yt29', en: 'yesterday', it: 'ieri', category: 'grammar' },
-  { id: 'yt30', en: 'night', it: 'notte', category: 'content' },
-  { id: 'yt31', en: 'moment', it: 'momento', category: 'content' },
-  { id: 'yt32', en: 'time (instance)', it: 'volta', category: 'content' },
-  // Daily Life
-  { id: 'yt33', en: 'lunch', it: 'pranzo', category: 'content' },
-  { id: 'yt34', en: 'money', it: 'soldi', category: 'content' },
-  { id: 'yt35', en: 'work / job', it: 'lavoro', category: 'content' },
-  // Abstract / Concepts
-  { id: 'yt36', en: 'tradition', it: 'tradizione', category: 'content' },
-  { id: 'yt37', en: 'experience', it: 'esperienza', category: 'content' },
-  { id: 'yt38', en: 'innovation', it: 'innovazione', category: 'content' },
-  { id: 'yt39', en: 'research', it: 'ricerca', category: 'content' },
-  { id: 'yt40', en: 'project', it: 'progetto', category: 'content' },
-];
-
-const VOCABULARY_FABRIZIO = [
-  // Media & Communication
-  { id: 'fab1', en: 'news (piece of)', it: 'notizia', category: 'content' },
-  { id: 'fab2', en: 'journalist', it: 'giornalista', category: 'content' },
-  { id: 'fab3', en: 'interview', it: 'intervista', category: 'content' },
-  { id: 'fab4', en: 'to tell / narrate', it: 'raccontare', category: 'content' },
-  { id: 'fab5', en: 'to publish', it: 'pubblicare', category: 'content' },
-  // Football & Sports
-  { id: 'fab6', en: 'football / soccer', it: 'calcio', category: 'cultural' },
-  { id: 'fab7', en: 'transfer market', it: 'calciomercato', category: 'cultural' },
-  { id: 'fab8', en: 'match / game', it: 'partita', category: 'content' },
-  { id: 'fab9', en: 'team', it: 'squadra', category: 'content' },
-  { id: 'fab10', en: 'player', it: 'giocatore', category: 'content' },
-  { id: 'fab11', en: 'agent / broker', it: 'procuratore', category: 'content' },
-  { id: 'fab12', en: 'fan / supporter', it: 'tifoso', category: 'content' },
-  // Life & Career
-  { id: 'fab13', en: 'career', it: 'carriera', category: 'content' },
-  { id: 'fab14', en: 'success', it: 'successo', category: 'content' },
-  { id: 'fab15', en: 'dream', it: 'sogno', category: 'content' },
-  { id: 'fab16', en: 'goal / objective', it: 'obiettivo', category: 'content' },
-  { id: 'fab17', en: 'passion', it: 'passione', category: 'content' },
-  { id: 'fab18', en: 'luck / fortune', it: 'fortuna', category: 'content' },
-  { id: 'fab19', en: 'opportunity', it: 'opportunità', category: 'content' },
-  { id: 'fab20', en: 'choice', it: 'scelta', category: 'content' },
-  { id: 'fab21', en: 'chance / occasion', it: 'occasione', category: 'content' },
-  // Abstract Concepts
-  { id: 'fab22', en: 'world', it: 'mondo', category: 'content' },
-  { id: 'fab23', en: 'life', it: 'vita', category: 'content' },
-  { id: 'fab24', en: 'story / history', it: 'storia', category: 'content' },
-  { id: 'fab25', en: 'way / manner', it: 'modo', category: 'grammar' },
-  { id: 'fab26', en: 'relationship', it: 'rapporto', category: 'content' },
-  { id: 'fab27', en: 'difference', it: 'differenza', category: 'content' },
-  { id: 'fab28', en: 'problem', it: 'problema', category: 'content' },
-  { id: 'fab29', en: 'respect', it: 'rispetto', category: 'content' },
-  { id: 'fab30', en: 'attention', it: 'attenzione', category: 'content' },
-  { id: 'fab31', en: 'fear', it: 'paura', category: 'content' },
-  { id: 'fab32', en: 'pressure', it: 'pressione', category: 'content' },
-  { id: 'fab33', en: 'key (solution)', it: 'chiave', category: 'content' },
-  { id: 'fab34', en: 'beginning / start', it: 'inizio', category: 'content' },
-  // Verbs
-  { id: 'fab35', en: 'to become', it: 'diventare', category: 'content' },
-  { id: 'fab36', en: 'to believe', it: 'credere', category: 'content' },
-  { id: 'fab37', en: 'to try', it: 'provare', category: 'content' },
-  { id: 'fab38', en: 'to hear / feel', it: 'sentire', category: 'content' },
-  { id: 'fab39', en: 'to create', it: 'creare', category: 'content' },
-  { id: 'fab40', en: 'to help', it: 'aiutare', category: 'content' },
-  { id: 'fab41', en: 'to ask (for)', it: 'chiedere', category: 'content' },
-  { id: 'fab42', en: 'to answer / reply', it: 'rispondere', category: 'content' },
-  { id: 'fab43', en: 'to change', it: 'cambiare', category: 'content' },
-  { id: 'fab44', en: 'to search / look for', it: 'cercare', category: 'content' },
-  { id: 'fab45', en: 'to sign', it: 'firmare', category: 'content' },
-  // Adjectives & Adverbs
-  { id: 'fab46', en: 'true / real', it: 'vero', category: 'content' },
-  { id: 'fab47', en: 'false / fake', it: 'falso', category: 'content' },
-  { id: 'fab48', en: 'big / great', it: 'grande', category: 'content' },
-  { id: 'fab49', en: 'easy', it: 'facile', category: 'content' },
-  { id: 'fab50', en: 'first', it: 'primo', category: 'grammar' },
-  { id: 'fab51', en: 'last', it: 'ultimo', category: 'grammar' },
-  { id: 'fab52', en: 'better / best', it: 'meglio', category: 'grammar' },
-  { id: 'fab53', en: 'future', it: 'futuro', category: 'content' },
-  // Everyday Nouns
-  { id: 'fab54', en: 'street / road', it: 'strada', category: 'content' },
-  { id: 'fab55', en: 'summer', it: 'estate', category: 'content' },
-  { id: 'fab56', en: 'contract', it: 'contratto', category: 'content' },
-  { id: 'fab57', en: 'language', it: 'lingua', category: 'content' },
-  { id: 'fab58', en: 'contact', it: 'contatto', category: 'content' },
-  { id: 'fab59', en: 'possibility', it: 'possibilità', category: 'content' },
-  { id: 'fab60', en: 'reputation', it: 'reputazione', category: 'content' },
-];
-
-const DECKS_TO_SEED = [
-  { deckKey: 'ADVERBS', label: 'Adverbs & Questions', words: VOCABULARY_ADVERBS },
-  { deckKey: 'YOUTUBE', label: 'Mutti', words: VOCABULARY_YOUTUBE },
-  { deckKey: 'FABRIZIO', label: 'Fabrizio', words: VOCABULARY_FABRIZIO },
-];
+const DECKS = {
+  CLASSIC: { label: 'Cultural', words: [
+    {id:'1',en:'the',it:'il / lo / la / i / gli / le',category:'grammar'},{id:'2',en:'to',it:'a / verso',category:'grammar'},{id:'3',en:'and',it:'e',category:'grammar'},{id:'4',en:'I',it:'io',category:'grammar'},{id:'5',en:'a',it:'un / uno / una',category:'grammar'},{id:'6',en:'is',it:'è',category:'grammar'},{id:'7',en:'of',it:'di',category:'grammar'},{id:'8',en:'in',it:'in / nel',category:'grammar'},{id:'9',en:'that',it:'che / quello',category:'grammar'},{id:'10',en:'we',it:'noi',category:'grammar'},{id:'11',en:'it',it:'esso / lo / la',category:'grammar'},{id:'12',en:'so',it:'così / quindi',category:'grammar'},{id:'13',en:'for',it:'per',category:'grammar'},{id:'14',en:'are',it:'sono / siete',category:'grammar'},{id:'15',en:'this',it:'questo / questa',category:'grammar'},{id:'16',en:'my',it:'mio / mia',category:'grammar'},{id:'17',en:'you',it:'tu / voi',category:'grammar'},{id:'18',en:'but',it:'ma',category:'grammar'},{id:'19',en:'on',it:'su / sopra',category:'grammar'},{id:'20',en:'with',it:'con',category:'grammar'},{id:'21',en:'have',it:'avere',category:'grammar'},{id:'22',en:'they',it:'loro',category:'grammar'},{id:'23',en:'was',it:'era / fu',category:'grammar'},{id:'24',en:'not',it:'non',category:'grammar'},{id:'25',en:'there',it:'lì / là / ci',category:'grammar'},{id:'26',en:'because',it:'perché',category:'grammar'},{id:'27',en:'me',it:'me / mi',category:'grammar'},{id:'28',en:'be',it:'essere',category:'grammar'},{id:'29',en:'at',it:'a / presso',category:'grammar'},{id:'30',en:'one',it:'uno / una',category:'grammar'},{id:'31',en:'from',it:'da',category:'grammar'},{id:'32',en:'video',it:'video',category:'content'},{id:'33',en:'market',it:'mercato',category:'content'},{id:'34',en:'very',it:'molto',category:'content'},{id:'35',en:'like',it:'mi piace / come',category:'content'},{id:'36',en:'asparagus',it:'asparagi',category:'content'},{id:'37',en:'traffic',it:'traffico',category:'content'},{id:'38',en:'morning',it:'mattina',category:'content'},{id:'39',en:'something',it:'qualcosa',category:'content'},{id:'40',en:'find',it:'trovare',category:'content'},{id:'41',en:'good',it:'buono / bene',category:'content'},{id:'42',en:'time',it:'tempo / ora',category:'content'},{id:'43',en:'know',it:'sapere / conoscere',category:'content'},{id:'44',en:'just',it:'appena / solo',category:'content'},{id:'45',en:'cook',it:'cucinare',category:'content'},{id:'46',en:'day',it:'giorno',category:'content'},{id:'47',en:'views',it:'visualizzazioni',category:'content'},{id:'48',en:'Italian',it:'Italiano',category:'content'},{id:'49',en:'people',it:'persone',category:'content'},{id:'50',en:'home',it:'casa',category:'content'},{id:'51',en:'Sardinian gnocchetti',it:'Malloreddus',category:'cultural',description:'Small ribbed pasta shapes typical of Sardinia.'},{id:'52',en:'Crunchy savory ring',it:'Taralli',category:'cultural',description:'Traditional Italian snack from the south, often flavored with fennel or pepper.'},{id:'53',en:'Toasted ring bread',it:'Freselle',category:'cultural',description:'Twice-baked bread from Puglia, usually served with tomatoes and olive oil.'},{id:'54',en:'Pork fat / Lard',it:'Sugna',category:'cultural',description:'Traditional fat used in Italian pastry and frying.'},{id:'55',en:'Crunchy pepper',it:'Peperone Crusco',category:'cultural',description:'Deep-fried sun-dried sweet peppers from Basilicata.'},{id:'56',en:'Vesuvius cherry tomato',it:'Piennolo del Vesuvio',category:'cultural',description:'A PDO tomato grown on the slopes of Mount Vesuvius.'},{id:'57',en:'Senise peppers',it:'Peperoni di Senise',category:'cultural',description:'Sweet peppers from Basilicata used to make Crusco.'},{id:'58',en:'Small gnocchi',it:'Gnocchetti',category:'cultural',description:'Smaller version of potato or flour gnocchi.'},{id:'59',en:'Large bruschetta',it:'Bruschettone',category:'cultural',description:'A larger version of the classic toasted bread appetizer.'},{id:'60',en:'Herbal Liqueur',it:'Cordial Campari',category:'cultural',description:'An old-fashioned raspberry-flavored liqueur from Campari.'},{id:'61',en:'Market',it:'Mercato',category:'cultural',description:'Commonly refers to local open-air markets in Italy.'},{id:'62',en:'Great Square',it:'Piazza Grande',category:'cultural',description:'The historic main square of Arezzo.'},{id:'63',en:'Rome',it:'Roma',category:'cultural',description:'The capital city of Italy.'},{id:'64',en:'Arezzo',it:'Arezzo',category:'cultural',description:'A city in eastern Tuscany known for its antique market.'},{id:'65',en:'Italian Encyclopedia Inst.',it:'Treccani',category:'cultural',description:'The Institute of the Italian Encyclopedia.'},{id:'66',en:'Sardinia',it:'Sardegna',category:'cultural',description:'A large Mediterranean island and Italian region.'},{id:'67',en:'Apulia',it:'Puglia',category:'cultural',description:'Region forming the "heel" of Italy\'s boot.'},{id:'68',en:'Naples',it:'Napoli',category:'cultural',description:'Capital of the Campania region.'}
+  ]},
+  VLOG: { label: 'Vlog Session', words: [
+    {id:'v1',en:'Today',it:'Oggi',category:'grammar'},{id:'v2',en:'Tomorrow',it:'Domani',category:'grammar'},{id:'v3',en:'January',it:'Gennaio',category:'grammar'},{id:'v4',en:'Week',it:'Settimana',category:'grammar'},{id:'v5',en:'Day / Full Day',it:'Giorno / Giornata',category:'grammar'},{id:'v6',en:'Morning',it:'Mattina',category:'grammar'},{id:'v7',en:'Sunday',it:'Domenica',category:'grammar'},{id:'v8',en:'Year',it:'Anno',category:'grammar'},{id:'v9',en:'Now',it:'Ora / Adesso',category:'grammar'},{id:'v10',en:'Always',it:'Sempre',category:'grammar'},{id:'v11',en:'Because',it:'Perché',category:'grammar'},{id:'v12',en:'So / Then',it:'Quindi / Allora',category:'grammar'},{id:'v13',en:'Anyway',it:'Comunque',category:'grammar'},{id:'v14',en:'Basically',it:'Insomma',category:'grammar'},{id:'v15',en:'Actually',it:'In realtà',category:'grammar'},{id:'v16',en:'But',it:'Ma',category:'grammar'},{id:'v17',en:'Also / Too',it:'Anche',category:'grammar'},{id:'v18',en:'Instead',it:'Invece',category:'grammar'},{id:'v19',en:'Very / Much',it:'Molto',category:'grammar'},{id:'v20',en:'Probably',it:'Forse / Probabilmente',category:'grammar'},{id:'v21',en:'Home',it:'Casa',category:'content'},{id:'v22',en:'Office',it:'Ufficio',category:'content'},{id:'v23',en:'City Center',it:'Centro',category:'content'},{id:'v24',en:'Bookstore',it:'Libreria',category:'content'},{id:'v25',en:'Bus',it:'Autobus',category:'content'},{id:'v26',en:'Bus Stop',it:'Fermata',category:'content'},{id:'v27',en:'Rome',it:'Roma',category:'cultural'},{id:'v28',en:'Book',it:'Libro',category:'content'},{id:'v29',en:'Vlog',it:'Vlog',category:'content'},{id:'v30',en:'Computer',it:'Computer',category:'content'},{id:'v31',en:'Diary / Planner',it:'Agenda / Diario',category:'content'},{id:'v32',en:'Bag',it:'Borsa',category:'content'},{id:'v33',en:'Video Camera',it:'Videocamera',category:'content'},{id:'v34',en:'Rain',it:'Pioggia',category:'content'},{id:'v35',en:'Gift',it:'Regalo',category:'content'},{id:'v36',en:'Car',it:'Macchina / Auto',category:'content'},{id:'v37',en:'Cell Phone',it:'Cellulare / Telefono',category:'content'},{id:'v38',en:'To go',it:'Andare',category:'content'},{id:'v39',en:'To do / To make',it:'Fare',category:'content'},{id:'v40',en:'To read',it:'Leggere',category:'content'},{id:'v41',en:'To see',it:'Vedere',category:'content'},{id:'v42',en:'To buy',it:'Comprare',category:'content'},{id:'v43',en:'To record',it:'Registrare',category:'content'},{id:'v44',en:'To work',it:'Lavorare',category:'content'},{id:'v45',en:'To eat',it:'Mangiare',category:'content'},{id:'v46',en:'To find',it:'Trovare',category:'content'},{id:'v47',en:'To start / begin',it:'Iniziare / Cominciare',category:'content'},{id:'v48',en:'To say / tell',it:'Dire',category:'content'},{id:'v49',en:'To think',it:'Pensare',category:'content'},{id:'v50',en:'To know',it:'Sapere',category:'content'},{id:'v51',en:'New',it:'Nuovo',category:'content'},{id:'v52',en:'Quiet / Calm',it:'Tranquillo / Calmo',category:'content'},{id:'v53',en:'Difficult',it:'Difficile',category:'content'},{id:'v54',en:'Nice / Good',it:'Bello / Buono',category:'content'},{id:'v55',en:'Tired',it:'Stanco',category:'content'},{id:'v56',en:'Full',it:'Pieno',category:'content'},{id:'v57',en:'Small',it:'Piccolo',category:'content'},{id:'v58',en:'Friend',it:'Amica / Amico',category:'content'},{id:'v59',en:'Everyone / All',it:'Tutti',category:'content'},{id:'v60',en:'Sister',it:'Sorella',category:'content'}
+  ]},
+  PRADA: { label: 'Prada List', words: [
+    {id:'p1',en:'more',it:'più',category:'grammar'},{id:'p2',en:'all, everything',it:'tutto',category:'grammar'},{id:'p3',en:'to be able to, can',it:'potere',category:'content'},{id:'p4',en:'that',it:'quello',category:'grammar'},{id:'p5',en:'if',it:'se',category:'grammar'},{id:'p6',en:'them, their',it:'loro',category:'grammar'},{id:'p7',en:'to want',it:'volere',category:'content'},{id:'p8',en:'to say, to tell',it:'dire',category:'content'},{id:'p9',en:'to know',it:'sapere',category:'content'},{id:'p10',en:'my, mine',it:'mio',category:'grammar'},{id:'p11',en:'you (singular informal)',it:'tu',category:'grammar'},{id:'p12',en:'he',it:'lui',category:'grammar'},{id:'p13',en:'she, you (singular formal)',it:'lei',category:'grammar'},{id:'p14',en:'we',it:'noi',category:'grammar'},{id:'p15',en:'you (plural)',it:'voi',category:'grammar'},{id:'p16',en:'us, there',it:'ci',category:'grammar'},{id:'p17',en:'of it, about it, some',it:'ne',category:'grammar'},{id:'p18',en:'oneself, himself, herself',it:'si',category:'grammar'},{id:'p19',en:'me, to me',it:'mi',category:'grammar'},{id:'p20',en:'you, to you',it:'ti',category:'grammar'},{id:'p21',en:'also, too',it:'anche',category:'grammar'},{id:'p22',en:'very, a lot, much',it:'molto',category:'grammar'},{id:'p23',en:'well, good',it:'bene',category:'grammar'},{id:'p24',en:'where',it:'dove',category:'grammar'},{id:'p25',en:'when',it:'quando',category:'grammar'},{id:'p26',en:'who, whom',it:'chi',category:'grammar'},{id:'p27',en:'what, thing',it:'cosa',category:'grammar'},{id:'p28',en:'only, alone',it:'solo',category:'grammar'},{id:'p29',en:'now',it:'ora',category:'grammar'},{id:'p30',en:'here',it:'qui',category:'grammar'},{id:'p31',en:'to go',it:'andare',category:'content'},{id:'p32',en:'so, thus',it:'così',category:'grammar'},{id:'p33',en:'to see',it:'vedere',category:'content'},{id:'p34',en:'because, why',it:'perché',category:'grammar'},{id:'p35',en:'to give',it:'dare',category:'content'},{id:'p36',en:'which',it:'quale',category:'grammar'},{id:'p37',en:'other',it:'altro',category:'grammar'},{id:'p38',en:'to speak',it:'parlare',category:'content'},{id:'p39',en:'to have to, must',it:'dovere',category:'content'},{id:'p40',en:'to stay, to be',it:'stare',category:'content'},{id:'p41',en:'day',it:'giorno',category:'content'},{id:'p42',en:'then, later',it:'poi',category:'grammar'},{id:'p43',en:'to find',it:'trovare',category:'content'},{id:'p44',en:'always',it:'sempre',category:'grammar'},{id:'p45',en:'nothing',it:'niente',category:'grammar'},{id:'p46',en:'two',it:'due',category:'grammar'},{id:'p47',en:'year',it:'anno',category:'content'},{id:'p48',en:'man',it:'uomo',category:'content'},{id:'p49',en:'new',it:'nuovo',category:'content'},{id:'p50',en:'nobody, no one',it:'nessuno',category:'grammar'}
+  ]},
+  TIS: { label: 'TIS Pharma', words: [
+    {id:'tis1',en:'production',it:'produzione',category:'content'},{id:'tis2',en:'Italy',it:'Italia',category:'content'},{id:'tis3',en:'film',it:'film',category:'content'},{id:'tis4',en:'company',it:'azienda',category:'content'},{id:'tis5',en:'vitamin',it:'vitamina',category:'content'},{id:'tis6',en:'facility',it:'stabilimento',category:'content'},{id:'tis7',en:'IBSA',it:'IBSA',category:'content'},{id:'tis8',en:'supplements',it:'integratori',category:'content'},{id:'tis9',en:'product',it:'prodotto',category:'content'},{id:'tis10',en:'pharmaceutical',it:'farmaceutico',category:'content'},{id:'tis11',en:'to produce',it:'produrre',category:'content'},{id:'tis12',en:'pharma',it:'farmaceutica',category:'content'},{id:'tis13',en:'technology',it:'tecnologia',category:'content'},{id:'tis14',en:'drugs',it:'farmaci',category:'content'},{id:'tis15',en:'products',it:'prodotti',category:'content'},{id:'tis16',en:'Italian',it:'italiano',category:'content'},{id:'tis17',en:'iron',it:'ferro',category:'content'},{id:'tis18',en:'process',it:'processo',category:'content'},{id:'tis19',en:'group',it:'gruppo',category:'content'},{id:'tis20',en:'films',it:'film orodispersibili',category:'content'},{id:'tis21',en:'patients',it:'pazienti',category:'content'},{id:'tis22',en:'important',it:'importante',category:'content'},{id:'tis23',en:'million',it:'milione',category:'content'},{id:'tis24',en:'FilmTec',it:'FilmTec',category:'content'},{id:'tis25',en:'quality',it:'qualità',category:'content'},{id:'tis26',en:'ingredient',it:'ingrediente',category:'content'},{id:'tis27',en:'machine',it:'macchina',category:'content'},{id:'tis28',en:'batch',it:'lotto',category:'content'},{id:'tis29',en:'industrial',it:'industriale',category:'content'},{id:'tis30',en:'market',it:'mercato',category:'content'},{id:'tis31',en:'ingredients',it:'ingredienti',category:'content'},{id:'tis32',en:'patents',it:'brevetti',category:'content'},{id:'tis33',en:'daily',it:'quotidiano',category:'content'},{id:'tis34',en:'water',it:'acqua',category:'content'},{id:'tis35',en:'to cut',it:'tagliare',category:'content'},{id:'tis36',en:'reel',it:'bobina',category:'content'},{id:'tis37',en:'revenue',it:'fatturato',category:'content'},{id:'tis38',en:'reality',it:'realtà',category:'content'},{id:'tis39',en:'countries',it:'paesi',category:'content'},{id:'tis40',en:'form',it:'forma',category:'content'},{id:'tis41',en:'hyaluronic',it:'ialuronico',category:'content'},{id:'tis42',en:'idea',it:'idea',category:'content'},{id:'tis43',en:'different',it:'diverso',category:'content'},{id:'tis44',en:'millions',it:'milioni',category:'content'},{id:'tis45',en:'inside',it:'interno',category:'content'},{id:'tis46',en:'sachet',it:'bustina',category:'content'},{id:'tis47',en:'manager',it:'manager',category:'content'},{id:'tis48',en:'offices',it:'uffici',category:'content'},{id:'tis49',en:'facilities',it:'impianti',category:'content'},{id:'tis50',en:'acid',it:'acido',category:'content'}
+  ]},
+  ADVERBS: { label: 'Adverbs & Questions', words: [
+    {id:'a1',en:'that (over there)',it:'quello / quella',category:'grammar'},{id:'a2',en:'here',it:'qui / qua',category:'grammar'},{id:'a3',en:'there',it:'lì / là',category:'grammar'},{id:'a4',en:'how / like',it:'come',category:'grammar'},{id:'a5',en:'when',it:'quando',category:'grammar'},{id:'a6',en:'where',it:'dove',category:'grammar'},{id:'a7',en:'why / because',it:'perché',category:'grammar'},{id:'a8',en:'how much',it:'quanto',category:'grammar'},{id:'a9',en:'which',it:'quale',category:'grammar'},{id:'a10',en:'who',it:'chi',category:'grammar'},{id:'a11',en:'what',it:'cosa / che cosa',category:'grammar'},{id:'a12',en:'every',it:'ogni',category:'grammar'},{id:'a13',en:'everything / all',it:'tutto / tutta',category:'grammar'},{id:'a14',en:'nothing',it:'niente / nulla',category:'grammar'},{id:'a15',en:'something',it:'qualcosa',category:'grammar'},{id:'a16',en:'someone',it:'qualcuno',category:'grammar'},{id:'a17',en:'nobody',it:'nessuno',category:'grammar'},{id:'a18',en:'still / again / yet',it:'ancora',category:'grammar'},{id:'a19',en:'already',it:'già',category:'grammar'},{id:'a20',en:'always',it:'sempre',category:'grammar'},{id:'a21',en:'never',it:'mai',category:'grammar'},{id:'a22',en:'often',it:'spesso',category:'grammar'},{id:'a23',en:'immediately',it:'subito',category:'grammar'},{id:'a24',en:'together',it:'insieme',category:'grammar'},{id:'a25',en:'maybe',it:'forse',category:'grammar'},{id:'a26',en:'anyway',it:'comunque',category:'grammar'},{id:'a27',en:'however',it:'però',category:'grammar'},{id:'a28',en:'also / too',it:'anche',category:'grammar'},{id:'a29',en:'only / just',it:'solo',category:'grammar'},{id:'a30',en:'so / like this',it:'così',category:'grammar'}
+  ]},
+  PHRASES: { label: 'Phrases', words: [
+    {id:'ph1',en:'Hi, how (…are you?)',it:'Ciao, come',category:'content'},{id:'ph2',en:'My name is…',it:'Mi chiamo',category:'content'},{id:'ph3',en:"I'm from…",it:'Sono di',category:'content'},{id:'ph4',en:'Do you speak English?',it:'Parli inglese',category:'content'},{id:'ph5',en:"I don't understand",it:'Non capisco',category:'content'},{id:'ph6',en:'Can you repeat?',it:'Puoi ripetere',category:'content'},{id:'ph7',en:'Where is…',it:'Dove si trova',category:'content'},{id:'ph8',en:'How much does it cost?',it:'Quanto costa',category:'content'},{id:'ph9',en:'I would like a…',it:'Vorrei un',category:'content'},{id:'ph10',en:"It's fine / okay",it:'Va bene',category:'content'},{id:'ph11',en:"I'm sorry",it:'Mi dispiace',category:'content'},{id:'ph12',en:'Thank you very much',it:'Grazie, mille',category:'content'},{id:'ph13',en:"You're welcome",it:'Di niente',category:'content'},{id:'ph14',en:'What… (…do you do / …is this?)',it:'Che cosa',category:'content'},{id:'ph15',en:'How long (…have you been here?)',it:'Da quanto',category:'content'},{id:'ph16',en:'At what time…',it:'A che ora',category:'content'},{id:'ph17',en:'What is… (…your name / your number?)',it:'Qual è',category:'content'},{id:'ph18',en:'I prefer to take… (the train / bus)',it:'Preferisco prendere',category:'content'},{id:'ph19',en:"You're right",it:'Hai ragione',category:'content'},{id:'ph20',en:'Me too',it:"Anch'io",category:'content'}
+  ]},
+  YOUTUBE: { label: 'Mutti', words: [
+    {id:'yt1',en:'tomato',it:'pomodoro',category:'content'},{id:'yt2',en:'harvest',it:'raccolto',category:'content'},{id:'yt3',en:'harvest season / countryside',it:'campagna',category:'content'},{id:'yt4',en:'soil / land',it:'terreno',category:'content'},{id:'yt5',en:'field',it:'campo',category:'content'},{id:'yt6',en:'to grow / cultivate',it:'coltivare',category:'content'},{id:'yt7',en:'to harvest / collect',it:'raccogliere',category:'content'},{id:'yt8',en:'supplier',it:'fornitore',category:'content'},{id:'yt9',en:'farmer',it:'agricoltore',category:'content'},{id:'yt10',en:'processing',it:'lavorazione',category:'content'},{id:'yt11',en:'selection',it:'selezione',category:'content'},{id:'yt12',en:'phase / stage',it:'fase',category:'content'},{id:'yt13',en:'check / control',it:'controllo',category:'content'},{id:'yt14',en:'analysis',it:'analisi',category:'content'},{id:'yt15',en:'smell',it:'odore',category:'content'},{id:'yt16',en:'taste / flavor',it:'sapore',category:'content'},{id:'yt17',en:'red',it:'rosso',category:'content'},{id:'yt18',en:'green',it:'verde',category:'content'},{id:'yt19',en:'yellow',it:'giallo',category:'content'},{id:'yt20',en:'fresh',it:'fresco',category:'content'},{id:'yt21',en:'perfect',it:'perfetto',category:'content'},{id:'yt22',en:'fundamental / essential',it:'fondamentale',category:'content'},{id:'yt23',en:'special',it:'speciale',category:'content'},{id:'yt24',en:'unique',it:'unico',category:'content'},{id:'yt25',en:'ready',it:'pronto',category:'content'},{id:'yt26',en:'young',it:'giovane',category:'content'},{id:'yt27',en:'inside',it:'dentro',category:'grammar'},{id:'yt28',en:'outside',it:'fuori',category:'grammar'},{id:'yt29',en:'yesterday',it:'ieri',category:'grammar'},{id:'yt30',en:'night',it:'notte',category:'content'},{id:'yt31',en:'moment',it:'momento',category:'content'},{id:'yt32',en:'time (instance)',it:'volta',category:'content'},{id:'yt33',en:'lunch',it:'pranzo',category:'content'},{id:'yt34',en:'money',it:'soldi',category:'content'},{id:'yt35',en:'work / job',it:'lavoro',category:'content'},{id:'yt36',en:'tradition',it:'tradizione',category:'content'},{id:'yt37',en:'experience',it:'esperienza',category:'content'},{id:'yt38',en:'innovation',it:'innovazione',category:'content'},{id:'yt39',en:'research',it:'ricerca',category:'content'},{id:'yt40',en:'project',it:'progetto',category:'content'}
+  ]},
+  FABRIZIO: { label: 'Fabrizio', words: [
+    {id:'fab1',en:'news (piece of)',it:'notizia',category:'content'},{id:'fab2',en:'journalist',it:'giornalista',category:'content'},{id:'fab3',en:'interview',it:'intervista',category:'content'},{id:'fab4',en:'to tell / narrate',it:'raccontare',category:'content'},{id:'fab5',en:'to publish',it:'pubblicare',category:'content'},{id:'fab6',en:'football / soccer',it:'calcio',category:'cultural'},{id:'fab7',en:'transfer market',it:'calciomercato',category:'cultural'},{id:'fab8',en:'match / game',it:'partita',category:'content'},{id:'fab9',en:'team',it:'squadra',category:'content'},{id:'fab10',en:'player',it:'giocatore',category:'content'},{id:'fab11',en:'agent / broker',it:'procuratore',category:'content'},{id:'fab12',en:'fan / supporter',it:'tifoso',category:'content'},{id:'fab13',en:'career',it:'carriera',category:'content'},{id:'fab14',en:'success',it:'successo',category:'content'},{id:'fab15',en:'dream',it:'sogno',category:'content'},{id:'fab16',en:'goal / objective',it:'obiettivo',category:'content'},{id:'fab17',en:'passion',it:'passione',category:'content'},{id:'fab18',en:'luck / fortune',it:'fortuna',category:'content'},{id:'fab19',en:'opportunity',it:'opportunità',category:'content'},{id:'fab20',en:'choice',it:'scelta',category:'content'},{id:'fab21',en:'chance / occasion',it:'occasione',category:'content'},{id:'fab22',en:'world',it:'mondo',category:'content'},{id:'fab23',en:'life',it:'vita',category:'content'},{id:'fab24',en:'story / history',it:'storia',category:'content'},{id:'fab25',en:'way / manner',it:'modo',category:'grammar'},{id:'fab26',en:'relationship',it:'rapporto',category:'content'},{id:'fab27',en:'difference',it:'differenza',category:'content'},{id:'fab28',en:'problem',it:'problema',category:'content'},{id:'fab29',en:'respect',it:'rispetto',category:'content'},{id:'fab30',en:'attention',it:'attenzione',category:'content'},{id:'fab31',en:'fear',it:'paura',category:'content'},{id:'fab32',en:'pressure',it:'pressione',category:'content'},{id:'fab33',en:'key (solution)',it:'chiave',category:'content'},{id:'fab34',en:'beginning / start',it:'inizio',category:'content'},{id:'fab35',en:'to become',it:'diventare',category:'content'},{id:'fab36',en:'to believe',it:'credere',category:'content'},{id:'fab37',en:'to try',it:'provare',category:'content'},{id:'fab38',en:'to hear / feel',it:'sentire',category:'content'},{id:'fab39',en:'to create',it:'creare',category:'content'},{id:'fab40',en:'to help',it:'aiutare',category:'content'},{id:'fab41',en:'to ask (for)',it:'chiedere',category:'content'},{id:'fab42',en:'to answer / reply',it:'rispondere',category:'content'},{id:'fab43',en:'to change',it:'cambiare',category:'content'},{id:'fab44',en:'to search / look for',it:'cercare',category:'content'},{id:'fab45',en:'to sign',it:'firmare',category:'content'},{id:'fab46',en:'true / real',it:'vero',category:'content'},{id:'fab47',en:'false / fake',it:'falso',category:'content'},{id:'fab48',en:'big / great',it:'grande',category:'content'},{id:'fab49',en:'easy',it:'facile',category:'content'},{id:'fab50',en:'first',it:'primo',category:'grammar'},{id:'fab51',en:'last',it:'ultimo',category:'grammar'},{id:'fab52',en:'better / best',it:'meglio',category:'grammar'},{id:'fab53',en:'future',it:'futuro',category:'content'},{id:'fab54',en:'street / road',it:'strada',category:'content'},{id:'fab55',en:'summer',it:'estate',category:'content'},{id:'fab56',en:'contract',it:'contratto',category:'content'},{id:'fab57',en:'language',it:'lingua',category:'content'},{id:'fab58',en:'contact',it:'contatto',category:'content'},{id:'fab59',en:'possibility',it:'possibilità',category:'content'},{id:'fab60',en:'reputation',it:'reputazione',category:'content'}
+  ]},
+};
 
 async function seed() {
-  if (!MONGODB_URI) {
-    console.error('Missing MONGODB_URL_TASK_MANAGER in .env.local');
-    process.exit(1);
+  if (!URI) { console.error('Missing MONGODB_URL_TASK_MANAGER'); process.exit(1); }
+  const client = await MongoClient.connect(URI);
+  const col = client.db(DB).collection(COL);
+  for (const [key, deck] of Object.entries(DECKS)) {
+    await col.replaceOne({ deckKey: key }, { deckKey: key, label: deck.label, words: deck.words, updatedAt: new Date() }, { upsert: true });
+    console.log(`✓ ${key} (${deck.words.length} words)`);
   }
-
-  const client = await MongoClient.connect(MONGODB_URI);
-  const db = client.db(DB_NAME);
-  const col = db.collection(COLLECTION);
-
-  for (const deck of DECKS_TO_SEED) {
-    await col.replaceOne(
-      { deckKey: deck.deckKey },
-      { deckKey: deck.deckKey, label: deck.label, words: deck.words, updatedAt: new Date() },
-      { upsert: true }
-    );
-    console.log(`✓ Upserted deck "${deck.deckKey}" (${deck.words.length} words)`);
-  }
-
   await client.close();
   console.log('Done.');
 }
-
-seed().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+seed().catch(e => { console.error(e); process.exit(1); });

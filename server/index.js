@@ -24,6 +24,8 @@ async function getDb() {
 
 const COLLECTION_ATTEMPTS = 'flash_attempts';
 const COLLECTION_PROGRESS = 'flash_progress';
+const COLLECTION_DECKS = 'flash_decks';
+const COLLECTION_SESSIONS = 'flash_sessions';
 
 // POST /api/attempts — record one attempt and update user progress
 app.post('/api/attempts', async (req, res) => {
@@ -54,19 +56,23 @@ app.post('/api/attempts', async (req, res) => {
       wordStreaks: {},
       masteredIds: [],
       learningIds: [],
+      failCounts: {},
       updatedAt: new Date(),
     };
 
     const wordStreaks = progress.wordStreaks || {};
+    const failCounts = progress.failCounts || {};
     const current = wordStreaks[wordId] || 0;
     const newStreak = outcome === 'mastered' ? (current > 0 ? current + 1 : 1) : (current < 0 ? current - 1 : -1);
     wordStreaks[wordId] = newStreak;
+    if (outcome === 'learning') failCounts[wordId] = (failCounts[wordId] || 0) + 1;
 
     let masteredIds = [...(progress.masteredIds || [])];
     let learningIds = [...(progress.learningIds || [])];
     if (outcome === 'mastered') {
       if (!masteredIds.includes(wordId)) masteredIds.push(wordId);
       learningIds = learningIds.filter((id) => id !== wordId);
+      delete failCounts[wordId];
     } else {
       if (!learningIds.includes(wordId)) learningIds.push(wordId);
       masteredIds = masteredIds.filter((id) => id !== wordId);
@@ -77,6 +83,7 @@ app.post('/api/attempts', async (req, res) => {
       {
         $set: {
           wordStreaks,
+          failCounts,
           masteredIds,
           learningIds,
           updatedAt: new Date(),
@@ -105,12 +112,14 @@ app.get('/api/progress', async (req, res) => {
         wordStreaks: {},
         masteredIds: [],
         learningIds: [],
+        failCounts: {},
       });
     }
     return res.json({
       wordStreaks: progress.wordStreaks || {},
       masteredIds: progress.masteredIds || [],
       learningIds: progress.learningIds || [],
+      failCounts: progress.failCounts || {},
     });
   } catch (err) {
     console.error('GET /api/progress', err);
@@ -158,6 +167,132 @@ app.get('/api/stats', async (req, res) => {
     });
   } catch (err) {
     console.error('GET /api/stats', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/decks?deckKey= — list all decks or a single deck with its words
+app.get('/api/decks', async (req, res) => {
+  try {
+    const database = await getDb();
+    const query = {};
+    if (req.query.deckKey) query.deckKey = req.query.deckKey;
+    const decks = await database.collection(COLLECTION_DECKS).find(query).toArray();
+    return res.json(decks);
+  } catch (err) {
+    console.error('GET /api/decks', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/sessions — save a completed practice session
+app.post('/api/sessions', async (req, res) => {
+  try {
+    const { userId, deckKey, score, wordsAttempted, wordsMastered, wordsLearning, duration } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const database = await getDb();
+    const doc = {
+      userId,
+      deckKey: deckKey || null,
+      score: score || 0,
+      wordsAttempted: wordsAttempted || 0,
+      wordsMastered: wordsMastered || 0,
+      wordsLearning: wordsLearning || 0,
+      duration: duration || null,
+      createdAt: new Date(),
+    };
+    await database.collection(COLLECTION_SESSIONS).insertOne(doc);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/sessions', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/sessions?userId=&limit=&days= — session history
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const { userId, limit, days } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const database = await getDb();
+    const query = { userId };
+    if (days) {
+      const since = new Date();
+      since.setDate(since.getDate() - parseInt(days, 10));
+      query.createdAt = { $gte: since };
+    }
+    const sessions = await database.collection(COLLECTION_SESSIONS)
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit || '50', 10))
+      .toArray();
+    return res.json(sessions);
+  } catch (err) {
+    console.error('GET /api/sessions', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/leaderboard?userId= — aggregate stats for progress dashboard
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const database = await getDb();
+    const sessions = database.collection(COLLECTION_SESSIONS);
+    const progressCol = database.collection(COLLECTION_PROGRESS);
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(startOfToday);
+    startOfWeek.setDate(startOfWeek.getDate() - 7);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [todaySessions, weekSessions, monthSessions, allSessions, progress] = await Promise.all([
+      sessions.countDocuments({ userId, createdAt: { $gte: startOfToday } }),
+      sessions.countDocuments({ userId, createdAt: { $gte: startOfWeek } }),
+      sessions.countDocuments({ userId, createdAt: { $gte: startOfMonth } }),
+      sessions.find({ userId }).sort({ createdAt: -1 }).limit(100).toArray(),
+      progressCol.findOne({ userId }),
+    ]);
+
+    const totalScore = allSessions.reduce((sum, s) => sum + (s.score || 0), 0);
+    const totalMastered = allSessions.reduce((sum, s) => sum + (s.wordsMastered || 0), 0);
+    const masteredIds = progress?.masteredIds || [];
+    const hardIds = Object.entries(progress?.wordStreaks || {})
+      .filter(([, s]) => s <= -2)
+      .map(([id]) => id);
+
+    // Best session
+    const bestSession = allSessions.length > 0
+      ? allSessions.reduce((best, s) => (s.score || 0) > (best.score || 0) ? s : best, allSessions[0])
+      : null;
+
+    // Daily streak (consecutive days with at least one session)
+    let dailyStreak = 0;
+    const daySet = new Set(allSessions.map(s => new Date(s.createdAt).toDateString()));
+    const check = new Date(startOfToday);
+    while (daySet.has(check.toDateString())) {
+      dailyStreak++;
+      check.setDate(check.getDate() - 1);
+    }
+
+    return res.json({
+      totalScore,
+      totalMastered,
+      totalWordsMastered: masteredIds.length,
+      hardWordCount: hardIds.length,
+      hardWordIds: hardIds,
+      masteredIds,
+      sessionsToday: todaySessions,
+      sessionsThisWeek: weekSessions,
+      sessionsThisMonth: monthSessions,
+      dailyStreak,
+      bestScore: bestSession?.score || 0,
+      recentSessions: allSessions.slice(0, 10),
+    });
+  } catch (err) {
+    console.error('GET /api/leaderboard', err);
     return res.status(500).json({ error: err.message });
   }
 });

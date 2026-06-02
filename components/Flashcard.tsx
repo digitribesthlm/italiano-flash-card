@@ -64,7 +64,7 @@ const Flashcard: React.FC<FlashcardProps> = ({ word, isFlipped, onFlip, mode, on
       className="w-full max-w-sm h-80 perspective cursor-pointer group select-none"
       onClick={onFlip}
     >
-      <div className={`relative w-full h-full duration-500 preserve-3d shadow-2xl rounded-[2.5rem] ${isFlipped ? 'rotate-y-180' : ''}`}>
+      <div className={`relative w-full h-full transition-flip preserve-3d shadow-2xl rounded-[2.5rem] ${isFlipped ? 'rotate-y-180' : ''}`}>
         
         {/* Front Side */}
         <div className="absolute w-full h-full backface-hidden bg-white rounded-[2.5rem] border-4 border-white flex flex-col items-center justify-center p-8 text-center overflow-hidden shadow-[inset_0_0_40px_rgba(0,0,0,0.02)]">

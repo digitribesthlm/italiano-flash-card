@@ -13,12 +13,18 @@
         }
         .preserve-3d {
             transform-style: preserve-3d;
+            -webkit-transform-style: preserve-3d;
         }
         .backface-hidden {
             backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
         }
         .rotate-y-180 {
             transform: rotateY(180deg);
+        }
+        .transition-flip {
+            transition: transform 0.5s ease;
+            -webkit-transition: -webkit-transform 0.5s ease;
         }
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }

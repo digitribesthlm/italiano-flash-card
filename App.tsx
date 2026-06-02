@@ -4,7 +4,7 @@ import { GoogleGenAI, Modality } from '@google/genai';
 import { Word, LanguageMode } from './types';
 import { DECKS } from './data/words';
 import Flashcard from './components/Flashcard';
-import { fetchProgress, postAttempt, fetchStats } from './api';
+import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard } from './api';
 
 // Audio Helpers
 function decode(base64: string) {
@@ -38,6 +38,7 @@ async function decodeAudioData(
 
 const STORAGE_KEY_STREAKS = 'italiano_flash_card_streaks';
 const STORAGE_KEY_MASTERED = 'italiano_flash_mastered_ids';
+const STORAGE_KEY_FAIL_COUNTS = 'italiano_flash_fail_counts';
 const STORAGE_KEY_AUTH = 'italiano_flash_auth';
 const STORAGE_KEY_USER = 'italiano_flash_user';
 
@@ -47,16 +48,19 @@ function getAllWords(): Word[] {
   return Object.values(DECKS).flat();
 }
 
-function getHardWordIds(cardStreaks: Record<string, number>, learningIds: Set<string>, statsHardIds: string[]): string[] {
+function getHardWordIds(cardStreaks: Record<string, number>, learningIds: Set<string>, statsHardIds: string[], failCounts?: Record<string, number>): string[] {
   const fromLocal = new Set<string>();
   Object.entries(cardStreaks).forEach(([id, streak]) => { if (streak <= -2) fromLocal.add(id); });
   learningIds.forEach((id) => fromLocal.add(id));
   statsHardIds.forEach((id) => fromLocal.add(id));
+  if (failCounts) {
+    Object.entries(failCounts).forEach(([id, count]) => { if (count >= 3) fromLocal.add(id); });
+  }
   return Array.from(fromLocal);
 }
 
 const App: React.FC = () => {
-  const [activeDeckKey, setActiveDeckKey] = useState<keyof typeof DECKS>('CLASSIC');
+  const [activeDeckKey, setActiveDeckKey] = useState<string>('CLASSIC');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [mode, setMode] = useState<LanguageMode>(LanguageMode.EN_TO_IT);
@@ -75,6 +79,15 @@ const App: React.FC = () => {
   const [progressLoadedFromApi, setProgressLoadedFromApi] = useState(false);
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('mixed');
   const [showHardList, setShowHardList] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<{
+    totalScore: number; totalMastered: number; totalWordsMastered: number;
+    hardWordCount: number; hardWordIds: string[]; masteredIds: string[];
+    sessionsToday: number; sessionsThisWeek: number; sessionsThisMonth: number;
+    dailyStreak: number; bestScore: number; recentSessions: any[];
+  } | null>(null);
+  const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
+  const [sessionSaved, setSessionSaved] = useState(false);
   
   // Audio context persistence
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -92,6 +105,10 @@ const App: React.FC = () => {
   });
   
   const [learningIds, setLearningIds] = useState<Set<string>>(new Set());
+  const [failCounts, setFailCounts] = useState<Record<string, number>>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_FAIL_COUNTS);
+    return saved ? JSON.parse(saved) : {};
+  });
   const [score, setScore] = useState(0);
   const [sessionStreak, setSessionStreak] = useState(0);
   const [maxStreak, setMaxStreak] = useState(0);
@@ -104,6 +121,10 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_MASTERED, JSON.stringify(Array.from(masteredIds)));
   }, [masteredIds]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_FAIL_COUNTS, JSON.stringify(failCounts));
+  }, [failCounts]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY_AUTH);
@@ -134,6 +155,9 @@ const App: React.FC = () => {
         if (progressData.learningIds?.length) {
           setLearningIds(new Set(progressData.learningIds));
         }
+        if (progressData.failCounts && Object.keys(progressData.failCounts).length > 0) {
+          setFailCounts(progressData.failCounts);
+        }
         setProgressLoadedFromApi(true);
         setStats({
           dailyAttempts: statsData.dailyAttempts ?? 0,
@@ -159,16 +183,79 @@ const App: React.FC = () => {
     shuffleWithMode(practiceMode);
   }, [progressLoadedFromApi]);
 
+  // Save session to MongoDB when completed
+  useEffect(() => {
+    if (!isSessionComplete || !isAuthenticated || !currentUser || sessionSaved) return;
+    const duration = Math.round((Date.now() - sessionStartTime) / 1000);
+    postSession(currentUser, {
+      deckKey: activeDeckKey,
+      score,
+      wordsAttempted: shuffledVocab.length,
+      wordsMastered: masteredIds.size,
+      wordsLearning: learningIds.size,
+      duration,
+    }).then(() => setSessionSaved(true)).catch(() => {});
+  }, [isSessionComplete, isAuthenticated, currentUser, sessionSaved]);
+
+  // Fetch leaderboard data when progress modal opens (snapshot current state for fallback)
+  const cardStreaksRef = useRef(cardStreaks);
+  cardStreaksRef.current = cardStreaks;
+  const masteredIdsRef = useRef(masteredIds);
+  masteredIdsRef.current = masteredIds;
+  const learningIdsRef = useRef(learningIds);
+  learningIdsRef.current = learningIds;
+  const failCountsRef = useRef(failCounts);
+  failCountsRef.current = failCounts;
+  const scoreRef = useRef(score);
+  scoreRef.current = score;
+  const maxStreakRef = useRef(maxStreak);
+  maxStreakRef.current = maxStreak;
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
+
+  useEffect(() => {
+    if (!showProgress || !isAuthenticated || !currentUser) return;
+    fetchLeaderboard(currentUser)
+      .then(setLeaderboard)
+      .catch(() => {
+        const allHardIds = getHardWordIds(cardStreaksRef.current, learningIdsRef.current, statsRef.current?.hardWordIds ?? []);
+        setLeaderboard({
+          totalScore: scoreRef.current,
+          totalMastered: masteredIdsRef.current.size,
+          totalWordsMastered: masteredIdsRef.current.size,
+          hardWordCount: allHardIds.length,
+          hardWordIds: allHardIds,
+          masteredIds: Array.from(masteredIdsRef.current),
+          sessionsToday: 0,
+          sessionsThisWeek: 0,
+          sessionsThisMonth: 0,
+          dailyStreak: maxStreakRef.current,
+          bestScore: scoreRef.current,
+          recentSessions: [],
+        });
+      });
+  }, [showProgress, isAuthenticated, currentUser]);
+
   const shuffleWithMode = (mode: PracticeMode) => {
-    let baseList: Word[] = [...DECKS[activeDeckKey]];
-    const hardIds = getHardWordIds(cardStreaks, learningIds, stats?.hardWordIds ?? []);
+    const hardIds = getHardWordIds(cardStreaks, learningIds, stats?.hardWordIds ?? [], failCounts);
+    let baseList: Word[];
+
+    if (activeDeckKey === 'HARD_ALL') {
+      baseList = getAllWords().filter((w) => hardIds.includes(w.id));
+      if (baseList.length === 0) baseList = getAllWords();
+    } else if (activeDeckKey === 'EASY_ALL') {
+      baseList = getAllWords().filter((w) => masteredIds.has(w.id));
+      if (baseList.length === 0) baseList = getAllWords();
+    } else {
+      baseList = [...DECKS[activeDeckKey as keyof typeof DECKS]];
+    }
 
     if (mode === 'hard') {
       baseList = baseList.filter((w) => (cardStreaks[w.id] || 0) <= -2 || learningIds.has(w.id) || hardIds.includes(w.id));
-      if (baseList.length === 0) baseList = [...DECKS[activeDeckKey]];
+      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords().filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords().filter((w) => masteredIds.has(w.id)) : [...DECKS[activeDeckKey as keyof typeof DECKS]];
     } else if (mode === 'mastered') {
       baseList = baseList.filter((w) => masteredIds.has(w.id));
-      if (baseList.length === 0) baseList = [...DECKS[activeDeckKey]];
+      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords().filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords().filter((w) => masteredIds.has(w.id)) : [...DECKS[activeDeckKey as keyof typeof DECKS]];
     }
     // 'mixed' = full deck (mastered words stay in so they get reviewed Duolingo-style)
 
@@ -180,6 +267,8 @@ const App: React.FC = () => {
     setAiContext(null);
     setIsSessionComplete(false);
     setSessionStreak(0);
+    setSessionSaved(false);
+    setSessionStartTime(Date.now());
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -251,6 +340,10 @@ const App: React.FC = () => {
         next.delete(wordId);
         return next;
       });
+      setFailCounts(prev => {
+        const { [wordId]: _, ...rest } = prev;
+        return rest;
+      });
       const newSessionStreak = sessionStreak + 1;
       setSessionStreak(newSessionStreak);
       setMaxStreak(Math.max(maxStreak, newSessionStreak));
@@ -263,6 +356,7 @@ const App: React.FC = () => {
         next.delete(wordId);
         return next;
       });
+      setFailCounts(prev => ({ ...prev, [wordId]: (prev[wordId] || 0) + 1 }));
       setSessionStreak(0);
       nextCard();
     }
@@ -415,7 +509,9 @@ const App: React.FC = () => {
   const currentWord = shuffledVocab[currentIndex];
   const currentCardStreak = cardStreaks[currentWord.id] || 0;
   const masteryStatus = masteredIds.has(currentWord.id) ? 'mastered' : learningIds.has(currentWord.id) ? 'learning' : null;
-  const totalInCurrentDeck = DECKS[activeDeckKey].length;
+  const totalInCurrentDeck = (activeDeckKey === 'HARD_ALL' || activeDeckKey === 'EASY_ALL')
+    ? shuffledVocab.length
+    : (DECKS[activeDeckKey as keyof typeof DECKS] || []).length;
   const masteryPercentage = Math.round((masteredIds.size / Object.values(DECKS).reduce((acc, deck) => acc + deck.length, 0)) * 100);
 
   if (isSessionComplete) {
@@ -463,8 +559,10 @@ const App: React.FC = () => {
     );
   }
 
-  const hardIds = getHardWordIds(cardStreaks, learningIds, stats?.hardWordIds ?? []);
+  const hardIds = getHardWordIds(cardStreaks, learningIds, stats?.hardWordIds ?? [], failCounts);
   const hardWordsList = getAllWords().filter((w) => hardIds.includes(w.id));
+  const allHardCount = hardIds.length;
+  const allMasteredCount = masteredIds.size;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center pb-32 overflow-x-hidden">
@@ -483,7 +581,10 @@ const App: React.FC = () => {
               ) : (
                 hardWordsList.map((w) => (
                   <li key={w.id} className="flex justify-between items-center py-2 px-3 bg-rose-50/50 rounded-xl border border-rose-100">
-                    <span className="text-gray-800 font-medium text-sm">{w.en}</span>
+                    <div className="flex flex-col">
+                      <span className="text-gray-800 font-medium text-sm">{w.en}</span>
+                      {failCounts[w.id] > 0 && <span className="text-[9px] text-rose-400 font-medium">failed {failCounts[w.id]}x</span>}
+                    </div>
                     <span className="text-rose-600 text-sm font-medium">{w.it}</span>
                   </li>
                 ))
@@ -497,6 +598,86 @@ const App: React.FC = () => {
               >
                 Practice these words
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showProgress && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={() => setShowProgress(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-sm font-black text-gray-900">📊 Progress</h3>
+              <button type="button" onClick={() => setShowProgress(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                <i className="fa-solid fa-xmark" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1 space-y-3">
+              {leaderboard ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-emerald-50 p-3 rounded-xl text-center">
+                      <p className="text-[9px] text-emerald-600 font-bold uppercase">Total Score</p>
+                      <p className="text-xl font-black text-emerald-700">{leaderboard.totalScore}</p>
+                    </div>
+                    <div className="bg-blue-50 p-3 rounded-xl text-center">
+                      <p className="text-[9px] text-blue-600 font-bold uppercase">Mastered</p>
+                      <p className="text-xl font-black text-blue-700">{leaderboard.totalWordsMastered}</p>
+                    </div>
+                    <div className="bg-amber-50 p-3 rounded-xl text-center">
+                      <p className="text-[9px] text-amber-600 font-bold uppercase">Day Streak</p>
+                      <p className="text-xl font-black text-amber-700">{leaderboard.dailyStreak} 🔥</p>
+                    </div>
+                    <div className="bg-purple-50 p-3 rounded-xl text-center">
+                      <p className="text-[9px] text-purple-600 font-bold uppercase">Best Score</p>
+                      <p className="text-xl font-black text-purple-700">{leaderboard.bestScore}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-gray-50 p-2 rounded-xl text-center">
+                      <p className="text-[8px] text-gray-500 font-bold uppercase">Today</p>
+                      <p className="text-sm font-black text-gray-700">{leaderboard.sessionsToday}</p>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded-xl text-center">
+                      <p className="text-[8px] text-gray-500 font-bold uppercase">This Week</p>
+                      <p className="text-sm font-black text-gray-700">{leaderboard.sessionsThisWeek}</p>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded-xl text-center">
+                      <p className="text-[8px] text-gray-500 font-bold uppercase">This Month</p>
+                      <p className="text-sm font-black text-gray-700">{leaderboard.sessionsThisMonth}</p>
+                    </div>
+                  </div>
+                  {leaderboard.hardWordCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setShowProgress(false); setShowHardList(true); }}
+                      className="w-full py-3 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
+                    >
+                      🔥 {leaderboard.hardWordCount} hard words across all decks — tap to review
+                    </button>
+                  )}
+                  {leaderboard.recentSessions.length > 0 && (
+                    <div>
+                      <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">Recent Sessions</p>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {leaderboard.recentSessions.slice(0, 10).map((s: any, i: number) => (
+                          <div key={i} className="flex justify-between items-center py-1.5 px-3 bg-gray-50 rounded-lg">
+                            <span className="text-xs text-gray-600">{new Date(s.createdAt).toLocaleDateString()}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] text-gray-400">{s.deckKey}</span>
+                              <span className="text-xs font-bold text-emerald-600">{s.score} pts</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <i className="fa-solid fa-spinner animate-spin text-2xl mb-2 block"></i>
+                  <p className="text-xs">Loading progress...</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -525,6 +706,8 @@ const App: React.FC = () => {
             <option value="PHRASES">💬 Phrases</option>
             <option value="YOUTUBE">🍅 Mutti</option>
             <option value="FABRIZIO">⚽ Fabrizio</option>
+            {allHardCount >= 3 && <option value="HARD_ALL">🔥 Hard Words ({allHardCount})</option>}
+            {allMasteredCount >= 3 && <option value="EASY_ALL">✅ Easy Words ({allMasteredCount})</option>}
           </select>
           <select
             value={practiceMode}
@@ -546,6 +729,14 @@ const App: React.FC = () => {
               🔥 List
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setShowProgress(true)}
+            className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg text-[10px] font-black uppercase border border-indigo-200 hover:bg-indigo-100 transition-colors flex items-center gap-1"
+            title="Progress dashboard"
+          >
+            📊 Progress
+          </button>
         </div>
         
         <div className="flex items-center gap-2">
@@ -581,7 +772,7 @@ const App: React.FC = () => {
         <div className="flex justify-between items-end mb-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Deck: {activeDeckKey === 'VLOG' ? 'Vlog' : activeDeckKey === 'PRADA' ? 'Prada' : activeDeckKey === 'TIS' ? 'TIS' : activeDeckKey === 'ADVERBS' ? 'Adverbs' : activeDeckKey === 'PHRASES' ? 'Phrases' : activeDeckKey === 'YOUTUBE' ? 'Mutti' : activeDeckKey === 'FABRIZIO' ? 'Fabrizio' : 'Classic'}
+              Deck: {activeDeckKey === 'HARD_ALL' ? 'All Hard' : activeDeckKey === 'EASY_ALL' ? 'All Easy' : activeDeckKey === 'VLOG' ? 'Vlog' : activeDeckKey === 'PRADA' ? 'Prada' : activeDeckKey === 'TIS' ? 'TIS' : activeDeckKey === 'ADVERBS' ? 'Adverbs' : activeDeckKey === 'PHRASES' ? 'Phrases' : activeDeckKey === 'YOUTUBE' ? 'Mutti' : activeDeckKey === 'FABRIZIO' ? 'Fabrizio' : 'Classic'}
               {practiceMode === 'hard' && ' · Hard'}
               {practiceMode === 'mastered' && ' · Mastered'}
             </span>

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import type React from 'react';
 
 export interface Word {
   id: string;
@@ -9,10 +9,11 @@ export interface Word {
   description?: string;
 }
 
-export enum LanguageMode {
-  EN_TO_IT = 'EN_TO_IT',
-  IT_TO_EN = 'IT_TO_EN'
-}
+export const LanguageMode = {
+  EN_TO_IT: 'EN_TO_IT',
+  IT_TO_EN: 'IT_TO_EN',
+} as const;
+export type LanguageMode = typeof LanguageMode[keyof typeof LanguageMode];
 
 export interface FlashcardProps {
   word: Word;
