@@ -371,6 +371,76 @@ export const VOCABULARY_YOUTUBE: Word[] = [
   { id: 'yt40', en: 'project', it: 'progetto', category: 'content' },
 ];
 
+export const VOCABULARY_FABRIZIO: Word[] = [
+  // Media & Communication
+  { id: 'fab1', en: 'news (piece of)', it: 'notizia', category: 'content' },
+  { id: 'fab2', en: 'journalist', it: 'giornalista', category: 'content' },
+  { id: 'fab3', en: 'interview', it: 'intervista', category: 'content' },
+  { id: 'fab4', en: 'to tell / narrate', it: 'raccontare', category: 'content' },
+  { id: 'fab5', en: 'to publish', it: 'pubblicare', category: 'content' },
+  // Football & Sports
+  { id: 'fab6', en: 'football / soccer', it: 'calcio', category: 'cultural' },
+  { id: 'fab7', en: 'transfer market', it: 'calciomercato', category: 'cultural' },
+  { id: 'fab8', en: 'match / game', it: 'partita', category: 'content' },
+  { id: 'fab9', en: 'team', it: 'squadra', category: 'content' },
+  { id: 'fab10', en: 'player', it: 'giocatore', category: 'content' },
+  { id: 'fab11', en: 'agent / broker', it: 'procuratore', category: 'content' },
+  { id: 'fab12', en: 'fan / supporter', it: 'tifoso', category: 'content' },
+  // Life & Career
+  { id: 'fab13', en: 'career', it: 'carriera', category: 'content' },
+  { id: 'fab14', en: 'success', it: 'successo', category: 'content' },
+  { id: 'fab15', en: 'dream', it: 'sogno', category: 'content' },
+  { id: 'fab16', en: 'goal / objective', it: 'obiettivo', category: 'content' },
+  { id: 'fab17', en: 'passion', it: 'passione', category: 'content' },
+  { id: 'fab18', en: 'luck / fortune', it: 'fortuna', category: 'content' },
+  { id: 'fab19', en: 'opportunity', it: 'opportunità', category: 'content' },
+  { id: 'fab20', en: 'choice', it: 'scelta', category: 'content' },
+  { id: 'fab21', en: 'chance / occasion', it: 'occasione', category: 'content' },
+  // Abstract Concepts
+  { id: 'fab22', en: 'world', it: 'mondo', category: 'content' },
+  { id: 'fab23', en: 'life', it: 'vita', category: 'content' },
+  { id: 'fab24', en: 'story / history', it: 'storia', category: 'content' },
+  { id: 'fab25', en: 'way / manner', it: 'modo', category: 'grammar' },
+  { id: 'fab26', en: 'relationship', it: 'rapporto', category: 'content' },
+  { id: 'fab27', en: 'difference', it: 'differenza', category: 'content' },
+  { id: 'fab28', en: 'problem', it: 'problema', category: 'content' },
+  { id: 'fab29', en: 'respect', it: 'rispetto', category: 'content' },
+  { id: 'fab30', en: 'attention', it: 'attenzione', category: 'content' },
+  { id: 'fab31', en: 'fear', it: 'paura', category: 'content' },
+  { id: 'fab32', en: 'pressure', it: 'pressione', category: 'content' },
+  { id: 'fab33', en: 'key (solution)', it: 'chiave', category: 'content' },
+  { id: 'fab34', en: 'beginning / start', it: 'inizio', category: 'content' },
+  // Verbs
+  { id: 'fab35', en: 'to become', it: 'diventare', category: 'content' },
+  { id: 'fab36', en: 'to believe', it: 'credere', category: 'content' },
+  { id: 'fab37', en: 'to try', it: 'provare', category: 'content' },
+  { id: 'fab38', en: 'to hear / feel', it: 'sentire', category: 'content' },
+  { id: 'fab39', en: 'to create', it: 'creare', category: 'content' },
+  { id: 'fab40', en: 'to help', it: 'aiutare', category: 'content' },
+  { id: 'fab41', en: 'to ask (for)', it: 'chiedere', category: 'content' },
+  { id: 'fab42', en: 'to answer / reply', it: 'rispondere', category: 'content' },
+  { id: 'fab43', en: 'to change', it: 'cambiare', category: 'content' },
+  { id: 'fab44', en: 'to search / look for', it: 'cercare', category: 'content' },
+  { id: 'fab45', en: 'to sign', it: 'firmare', category: 'content' },
+  // Adjectives & Adverbs
+  { id: 'fab46', en: 'true / real', it: 'vero', category: 'content' },
+  { id: 'fab47', en: 'false / fake', it: 'falso', category: 'content' },
+  { id: 'fab48', en: 'big / great', it: 'grande', category: 'content' },
+  { id: 'fab49', en: 'easy', it: 'facile', category: 'content' },
+  { id: 'fab50', en: 'first', it: 'primo', category: 'grammar' },
+  { id: 'fab51', en: 'last', it: 'ultimo', category: 'grammar' },
+  { id: 'fab52', en: 'better / best', it: 'meglio', category: 'grammar' },
+  { id: 'fab53', en: 'future', it: 'futuro', category: 'content' },
+  // Everyday Nouns
+  { id: 'fab54', en: 'street / road', it: 'strada', category: 'content' },
+  { id: 'fab55', en: 'summer', it: 'estate', category: 'content' },
+  { id: 'fab56', en: 'contract', it: 'contratto', category: 'content' },
+  { id: 'fab57', en: 'language', it: 'lingua', category: 'content' },
+  { id: 'fab58', en: 'contact', it: 'contatto', category: 'content' },
+  { id: 'fab59', en: 'possibility', it: 'possibilità', category: 'content' },
+  { id: 'fab60', en: 'reputation', it: 'reputazione', category: 'content' },
+];
+
 export const DECKS = {
   CLASSIC: VOCABULARY_CLASSIC,
   VLOG: VOCABULARY_VLOG,
@@ -379,4 +449,5 @@ export const DECKS = {
   ADVERBS: VOCABULARY_ADVERBS,
   PHRASES: VOCABULARY_PHRASES,
   YOUTUBE: VOCABULARY_YOUTUBE,
+  FABRIZIO: VOCABULARY_FABRIZIO,
 };
