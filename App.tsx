@@ -706,6 +706,7 @@ const App: React.FC = () => {
             <option value="PHRASES">💬 Phrases</option>
             <option value="YOUTUBE">🍅 Mutti</option>
             <option value="FABRIZIO">⚽ Fabrizio</option>
+            <option value="SALVATORE">💾 Salvatore</option>
             {allHardCount >= 3 && <option value="HARD_ALL">🔥 Hard Words ({allHardCount})</option>}
             {allMasteredCount >= 3 && <option value="EASY_ALL">✅ Easy Words ({allMasteredCount})</option>}
           </select>
@@ -772,7 +773,7 @@ const App: React.FC = () => {
         <div className="flex justify-between items-end mb-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Deck: {activeDeckKey === 'HARD_ALL' ? 'All Hard' : activeDeckKey === 'EASY_ALL' ? 'All Easy' : activeDeckKey === 'VLOG' ? 'Vlog' : activeDeckKey === 'PRADA' ? 'Prada' : activeDeckKey === 'TIS' ? 'TIS' : activeDeckKey === 'ADVERBS' ? 'Adverbs' : activeDeckKey === 'PHRASES' ? 'Phrases' : activeDeckKey === 'YOUTUBE' ? 'Mutti' : activeDeckKey === 'FABRIZIO' ? 'Fabrizio' : 'Classic'}
+              Deck: {activeDeckKey === 'HARD_ALL' ? 'All Hard' : activeDeckKey === 'EASY_ALL' ? 'All Easy' : activeDeckKey === 'VLOG' ? 'Vlog' : activeDeckKey === 'PRADA' ? 'Prada' : activeDeckKey === 'TIS' ? 'TIS' : activeDeckKey === 'ADVERBS' ? 'Adverbs' : activeDeckKey === 'PHRASES' ? 'Phrases' : activeDeckKey === 'YOUTUBE' ? 'Mutti' : activeDeckKey === 'FABRIZIO' ? 'Fabrizio' : activeDeckKey === 'SALVATORE' ? 'Salvatore' : 'Classic'}
               {practiceMode === 'hard' && ' · Hard'}
               {practiceMode === 'mastered' && ' · Mastered'}
             </span>

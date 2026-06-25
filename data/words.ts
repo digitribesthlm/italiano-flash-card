@@ -441,6 +441,70 @@ export const VOCABULARY_FABRIZIO: Word[] = [
   { id: 'fab60', en: 'reputation', it: 'reputazione', category: 'content' },
 ];
 
+export const VOCABULARY_SALVATORE: Word[] = [
+  // Technology & Programming
+  { id: 'sal1', en: 'to program', it: 'programmare', category: 'content' },
+  { id: 'sal2', en: 'code', it: 'codice', category: 'content' },
+  { id: 'sal3', en: 'open source', it: 'open source', category: 'content' },
+  { id: 'sal4', en: 'software', it: 'software', category: 'content' },
+  { id: 'sal5', en: 'computer scientist', it: 'informatico', category: 'content' },
+  { id: 'sal6', en: 'algorithm', it: 'algoritmo', category: 'content' },
+  { id: 'sal7', en: 'license', it: 'licenza', category: 'content' },
+  { id: 'sal8', en: 'database', it: 'database', category: 'content' },
+  // Career & Business
+  { id: 'sal9', en: 'to earn', it: 'guadagnare', category: 'content' },
+  { id: 'sal10', en: 'salary', it: 'stipendio', category: 'content' },
+  { id: 'sal11', en: 'to hire', it: 'assumere', category: 'content' },
+  { id: 'sal12', en: 'entrepreneur', it: 'imprenditore', category: 'content' },
+  { id: 'sal13', en: 'company / business', it: 'impresa', category: 'content' },
+  { id: 'sal14', en: 'skill / competence', it: 'competenza', category: 'content' },
+  { id: 'sal15', en: 'training / education', it: 'formazione', category: 'content' },
+  { id: 'sal16', en: 'website', it: 'sito', category: 'content' },
+  { id: 'sal17', en: 'client / customer', it: 'cliente', category: 'content' },
+  // Life & Philosophy
+  { id: 'sal18', en: 'happiness', it: 'felicità', category: 'content' },
+  { id: 'sal19', en: 'balance (life/work)', it: 'bilancio', category: 'content' },
+  { id: 'sal20', en: 'trust / confidence', it: 'fiducia', category: 'content' },
+  { id: 'sal21', en: 'anxiety', it: 'ansia', category: 'content' },
+  { id: 'sal22', en: 'intellectual', it: 'intellettuale', category: 'content' },
+  { id: 'sal23', en: 'thought', it: 'pensiero', category: 'content' },
+  { id: 'sal24', en: 'legacy / heritage', it: 'eredità', category: 'content', description: 'Engineering legacy — a key theme in the interview' },
+  // Daily Life
+  { id: 'sal25', en: 'city', it: 'città', category: 'content' },
+  { id: 'sal26', en: 'family', it: 'famiglia', category: 'content' },
+  { id: 'sal27', en: 'daughter', it: 'figlia', category: 'content' },
+  { id: 'sal28', en: 'to wake up', it: 'svegliarsi', category: 'content' },
+  { id: 'sal29', en: 'afternoon', it: 'pomeriggio', category: 'content' },
+  { id: 'sal30', en: 'dinner', it: 'cena', category: 'content' },
+  { id: 'sal31', en: 'gym', it: 'palestra', category: 'content' },
+  { id: 'sal32', en: 'walk / stroll', it: 'passeggiata', category: 'content' },
+  { id: 'sal33', en: 'sea', it: 'mare', category: 'content' },
+  { id: 'sal34', en: 'rent', it: 'affitto', category: 'content' },
+  { id: 'sal35', en: 'to go out', it: 'uscire', category: 'content' },
+  { id: 'sal36', en: 'to sleep', it: 'dormire', category: 'content' },
+  // Verbs
+  { id: 'sal37', en: 'to solve', it: 'risolvere', category: 'content' },
+  { id: 'sal38', en: 'to succeed / manage', it: 'riuscire', category: 'content' },
+  { id: 'sal39', en: 'to build', it: 'costruire', category: 'content' },
+  { id: 'sal40', en: 'to write', it: 'scrivere', category: 'content' },
+  { id: 'sal41', en: 'to reach / achieve', it: 'raggiungere', category: 'content' },
+  { id: 'sal42', en: 'to have fun', it: 'divertirsi', category: 'content' },
+  { id: 'sal43', en: 'to quit / stop', it: 'smettere', category: 'content' },
+  // Adjectives & Nouns
+  { id: 'sal44', en: 'lazy', it: 'pigro', category: 'content' },
+  { id: 'sal45', en: 'productive', it: 'produttivo', category: 'content' },
+  { id: 'sal46', en: 'significant', it: 'significativo', category: 'content' },
+  { id: 'sal47', en: 'confident / hopeful', it: 'fiducioso', category: 'content' },
+  { id: 'sal48', en: 'writer', it: 'scrittore', category: 'content' },
+  { id: 'sal49', en: 'novel', it: 'romanzo', category: 'content' },
+  { id: 'sal50', en: 'community', it: 'comunità', category: 'content' },
+  { id: 'sal51', en: 'result', it: 'risultato', category: 'content' },
+  { id: 'sal52', en: 'creator', it: 'creatore', category: 'content' },
+  { id: 'sal53', en: 'channel (YouTube)', it: 'canale', category: 'content' },
+  { id: 'sal54', en: 'cliff / rocky coast', it: 'scogliera', category: 'content', description: 'Like the Scogliera di Catania featured in the interview' },
+  { id: 'sal55', en: 'social (adj.)', it: 'sociale', category: 'content' },
+];
+
 export const DECKS = {
   CLASSIC: VOCABULARY_CLASSIC,
   VLOG: VOCABULARY_VLOG,
@@ -450,4 +514,5 @@ export const DECKS = {
   PHRASES: VOCABULARY_PHRASES,
   YOUTUBE: VOCABULARY_YOUTUBE,
   FABRIZIO: VOCABULARY_FABRIZIO,
+  SALVATORE: VOCABULARY_SALVATORE,
 };
