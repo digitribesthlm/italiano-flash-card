@@ -505,6 +505,66 @@ export const VOCABULARY_SALVATORE: Word[] = [
   { id: 'sal55', en: 'social (adj.)', it: 'sociale', category: 'content' },
 ];
 
+export const VOCABULARY_ROMANIA: Word[] = [
+  // Nature & Landscape
+  { id: 'rom1', en: 'mountain', it: 'montagna', category: 'content' },
+  { id: 'rom2', en: 'woods / forest', it: 'bosco', category: 'content' },
+  { id: 'rom3', en: 'stone', it: 'pietra', category: 'content' },
+  { id: 'rom4', en: 'path / trail', it: 'sentiero', category: 'content' },
+  { id: 'rom5', en: 'summit / top', it: 'cima', category: 'content' },
+  { id: 'rom6', en: 'spring (water source)', it: 'sorgente', category: 'content' },
+  { id: 'rom7', en: 'vegetable garden', it: 'orto', category: 'content' },
+  { id: 'rom8', en: 'season', it: 'stagione', category: 'content' },
+  // Simple Living
+  { id: 'rom9', en: 'firewood', it: 'legna', category: 'content' },
+  { id: 'rom10', en: 'wood (material)', it: 'legno', category: 'content' },
+  { id: 'rom11', en: 'stove / heater', it: 'stufa', category: 'content' },
+  { id: 'rom12', en: 'cistern / water tank', it: 'cisterna', category: 'content' },
+  { id: 'rom13', en: 'hen', it: 'gallina', category: 'content' },
+  { id: 'rom14', en: 'egg', it: 'uovo', category: 'content' },
+  { id: 'rom15', en: 'gift', it: 'dono', category: 'content' },
+  // Spirituality & Religion
+  { id: 'rom16', en: 'hermitage', it: 'eremo', category: 'content' },
+  { id: 'rom17', en: 'prayer', it: 'preghiera', category: 'content' },
+  { id: 'rom18', en: 'meditation', it: 'meditazione', category: 'content' },
+  { id: 'rom19', en: 'pilgrim', it: 'pellegrino', category: 'content' },
+  { id: 'rom20', en: 'convent / monastery', it: 'convento', category: 'content' },
+  { id: 'rom21', en: 'friar', it: 'frate', category: 'content' },
+  { id: 'rom22', en: 'creation (the created world)', it: 'creato', category: 'content' },
+  { id: 'rom23', en: 'spirituality', it: 'spiritualità', category: 'content' },
+  // Inner Life & Emotions
+  { id: 'rom24', en: 'courage', it: 'coraggio', category: 'content' },
+  { id: 'rom25', en: 'strength', it: 'forza', category: 'content' },
+  { id: 'rom26', en: 'joy', it: 'gioia', category: 'content' },
+  { id: 'rom27', en: 'peace', it: 'pace', category: 'content' },
+  { id: 'rom28', en: 'hope', it: 'speranza', category: 'content' },
+  { id: 'rom29', en: 'solitude', it: 'solitudine', category: 'content' },
+  { id: 'rom30', en: 'compassion', it: 'compassione', category: 'content' },
+  { id: 'rom31', en: 'wonder / marvel', it: 'meraviglia', category: 'content' },
+  { id: 'rom32', en: 'fatigue / effort', it: 'fatica', category: 'content' },
+  // Values & Abstract Concepts
+  { id: 'rom33', en: 'simplicity', it: 'semplicità', category: 'content' },
+  { id: 'rom34', en: 'humility', it: 'umiltà', category: 'content' },
+  { id: 'rom35', en: 'freedom', it: 'libertà', category: 'content' },
+  { id: 'rom36', en: 'hospitality / welcome', it: 'accoglienza', category: 'content' },
+  { id: 'rom37', en: 'harmony', it: 'armonia', category: 'content' },
+  { id: 'rom38', en: 'humanity', it: 'umanità', category: 'content' },
+  { id: 'rom39', en: 'kindness', it: 'gentilezza', category: 'content' },
+  { id: 'rom40', en: 'responsibility', it: 'responsabilità', category: 'content' },
+  { id: 'rom41', en: 'will / desire', it: 'volontà', category: 'content' },
+  { id: 'rom42', en: 'inspiration', it: 'ispirazione', category: 'content' },
+  // Places & Objects
+  { id: 'rom43', en: 'ruin (of a building)', it: 'rudere', category: 'content' },
+  { id: 'rom44', en: 'rubble / ruins', it: 'macerie', category: 'content' },
+  { id: 'rom45', en: 'abandonment', it: 'abbandono', category: 'content' },
+  { id: 'rom46', en: 'donation', it: 'donazione', category: 'content' },
+  { id: 'rom47', en: 'utopia (realized dream)', it: 'utopia', category: 'content' },
+  // Actions & Experiences
+  { id: 'rom48', en: 'encounter / meeting', it: 'incontro', category: 'content' },
+  { id: 'rom49', en: 'adventure', it: 'avventura', category: 'content' },
+  { id: 'rom50', en: 'gaze / look', it: 'sguardo', category: 'content' },
+];
+
 export const DECKS = {
   CLASSIC: VOCABULARY_CLASSIC,
   VLOG: VOCABULARY_VLOG,
@@ -515,4 +575,5 @@ export const DECKS = {
   YOUTUBE: VOCABULARY_YOUTUBE,
   FABRIZIO: VOCABULARY_FABRIZIO,
   SALVATORE: VOCABULARY_SALVATORE,
+  ROMANIA: VOCABULARY_ROMANIA,
 };
