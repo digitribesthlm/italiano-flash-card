@@ -565,6 +565,77 @@ export const VOCABULARY_ROMANIA: Word[] = [
   { id: 'rom50', en: 'gaze / look', it: 'sguardo', category: 'content' },
 ];
 
+export const VOCABULARY_FUNCTION: Word[] = [
+  // Question Words
+  { id: 'fw1', en: 'here', it: 'qui', category: 'grammar', description: 'opposite of "there".' },
+  { id: 'fw2', en: 'there', it: 'lì / là', category: 'grammar', description: 'lì (specific), là (general).' },
+  { id: 'fw3', en: 'when', it: 'quando', category: 'grammar', description: 'question word / conjunction.' },
+  { id: 'fw4', en: 'where', it: 'dove', category: 'grammar', description: 'question word.' },
+  { id: 'fw5', en: 'how / like', it: 'come', category: 'grammar', description: 'question word or comparison.' },
+  { id: 'fw6', en: 'why / because', it: 'perché', category: 'grammar', description: 'question or cause.' },
+  { id: 'fw7', en: 'who', it: 'chi', category: 'grammar', description: 'question word.' },
+  { id: 'fw8', en: 'what', it: 'che / cosa', category: 'grammar', description: 'che often as relative/conjunction, cosa for "what".' },
+  { id: 'fw9', en: 'which', it: 'quale', category: 'grammar', description: 'used with singular/plural forms.' },
+  // Demonstratives
+  { id: 'fw10', en: 'this (m, sing)', it: 'questo', category: 'grammar', description: 'demonstrative.' },
+  { id: 'fw11', en: 'this (f, sing)', it: 'questa', category: 'grammar', description: 'demonstrative.' },
+  { id: 'fw12', en: 'these (m, pl)', it: 'questi', category: 'grammar', description: 'demonstrative.' },
+  { id: 'fw13', en: 'these (f, pl)', it: 'queste', category: 'grammar', description: 'demonstrative.' },
+  { id: 'fw14', en: 'that (m, sing)', it: 'quello', category: 'grammar', description: 'demonstrative.' },
+  { id: 'fw15', en: 'that (f, sing)', it: 'quella', category: 'grammar', description: 'demonstrative.' },
+  { id: 'fw16', en: 'those (m, pl)', it: 'quelli', category: 'grammar', description: 'demonstrative.' },
+  { id: 'fw17', en: 'those (f, pl)', it: 'quelle', category: 'grammar', description: 'demonstrative.' },
+  // Subject Pronouns
+  { id: 'fw18', en: 'I', it: 'io', category: 'grammar', description: 'subject pronoun.' },
+  { id: 'fw19', en: 'you (sing., informal)', it: 'tu', category: 'grammar', description: 'subject pronoun.' },
+  { id: 'fw20', en: 'he', it: 'lui', category: 'grammar', description: 'subject pronoun.' },
+  { id: 'fw21', en: 'she / you (formal)', it: 'lei', category: 'grammar', description: 'subject pronoun.' },
+  { id: 'fw22', en: 'we', it: 'noi', category: 'grammar', description: 'subject pronoun.' },
+  { id: 'fw23', en: 'you (pl)', it: 'voi', category: 'grammar', description: 'subject pronoun.' },
+  { id: 'fw24', en: 'they', it: 'loro', category: 'grammar', description: 'subject pronoun.' },
+  // Object / Clitic Pronouns
+  { id: 'fw25', en: 'me / to me', it: 'mi', category: 'grammar', description: 'object / reflexive pronoun.' },
+  { id: 'fw26', en: 'you / to you', it: 'ti', category: 'grammar', description: 'object / reflexive pronoun.' },
+  { id: 'fw27', en: 'to him / to them (m, clitic)', it: 'gli', category: 'grammar', description: 'indirect object clitic.' },
+  { id: 'fw28', en: 'to her / her (clitic)', it: 'le', category: 'grammar', description: 'indirect object clitic.' },
+  { id: 'fw29', en: 'us / to us / there', it: 'ci', category: 'grammar', description: 'multiple uses including "there" for place.' },
+  { id: 'fw30', en: 'you (pl) / there', it: 'vi', category: 'grammar', description: 'multiple uses.' },
+  { id: 'fw31', en: 'it / him (m, clitic)', it: 'lo', category: 'grammar', description: 'direct object clitic.' },
+  { id: 'fw32', en: 'it / her (f, clitic)', it: 'la', category: 'grammar', description: 'direct object clitic.' },
+  { id: 'fw33', en: 'them (m)', it: 'li', category: 'grammar', description: 'direct object clitic.' },
+  { id: 'fw34', en: 'them (f)', it: 'le', category: 'grammar', description: 'direct object clitic.' },
+  { id: 'fw35', en: 'oneself / reflexive marker', it: 'si', category: 'grammar', description: 'used in reflexive verbs.' },
+  // Negation & Connectives
+  { id: 'fw36', en: 'not', it: 'non', category: 'grammar', description: 'negation.' },
+  { id: 'fw37', en: 'also / too', it: 'anche', category: 'grammar', description: 'adds information.' },
+  { id: 'fw38', en: 'only / alone', it: 'solo', category: 'grammar', description: 'context determines meaning.' },
+  { id: 'fw39', en: 'even if / although', it: 'anche se', category: 'grammar', description: 'conjunction (two words).' },
+  // Prepositions
+  { id: 'fw40', en: 'for / by / because of', it: 'per', category: 'grammar', description: 'preposition.' },
+  { id: 'fw41', en: 'to / at / in', it: 'a', category: 'grammar', description: 'preposition with many uses.' },
+  { id: 'fw42', en: 'in / into', it: 'in', category: 'grammar', description: 'preposition.' },
+  { id: 'fw43', en: 'on / about', it: 'su', category: 'grammar', description: 'preposition.' },
+  { id: 'fw44', en: 'with', it: 'con', category: 'grammar', description: 'preposition.' },
+  { id: 'fw45', en: 'without', it: 'senza', category: 'grammar', description: 'preposition.' },
+  { id: 'fw46', en: 'between / in (time)', it: 'tra / fra', category: 'grammar', description: 'both forms interchangeable.' },
+  // Time Adverbs
+  { id: 'fw47', en: 'before', it: 'prima', category: 'grammar', description: 'adverb or preposition in time.' },
+  { id: 'fw48', en: 'after', it: 'dopo', category: 'grammar', description: 'adverb or preposition.' },
+  { id: 'fw49', en: 'always', it: 'sempre', category: 'grammar', description: 'frequency adverb.' },
+  { id: 'fw50', en: 'never', it: 'mai', category: 'grammar', description: 'frequency adverb.' },
+  { id: 'fw51', en: 'often', it: 'spesso', category: 'grammar', description: 'frequency adverb.' },
+  { id: 'fw52', en: 'immediately', it: 'subito', category: 'grammar', description: 'adverb.' },
+  { id: 'fw53', en: 'now', it: 'adesso / ora', category: 'grammar', description: 'both common; adesso is informal.' },
+  // Manner & Discourse
+  { id: 'fw54', en: 'near here', it: 'qui vicino', category: 'grammar', description: 'phrase.' },
+  { id: 'fw55', en: 'far / far away', it: 'lontano', category: 'grammar', description: 'adverb / adjective.' },
+  { id: 'fw56', en: 'then / so', it: 'allora', category: 'grammar', description: 'context-dependent (time or consequence).' },
+  { id: 'fw57', en: 'so / like this', it: 'così', category: 'grammar', description: 'adverb or conjunction.' },
+  { id: 'fw58', en: 'certainly / of course', it: 'certo', category: 'grammar', description: 'particle / adjective.' },
+  { id: 'fw59', en: 'maybe', it: 'forse', category: 'grammar', description: 'modal adverb.' },
+  { id: 'fw60', en: 'I wish / maybe / perhaps', it: 'magari', category: 'grammar', description: 'colloquial, multiple uses.' },
+];
+
 export const DECKS = {
   CLASSIC: VOCABULARY_CLASSIC,
   VLOG: VOCABULARY_VLOG,
@@ -576,4 +647,5 @@ export const DECKS = {
   FABRIZIO: VOCABULARY_FABRIZIO,
   SALVATORE: VOCABULARY_SALVATORE,
   ROMANIA: VOCABULARY_ROMANIA,
+  FUNCTION: VOCABULARY_FUNCTION,
 };
