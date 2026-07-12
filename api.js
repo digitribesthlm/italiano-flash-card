@@ -53,3 +53,19 @@ export async function fetchLeaderboard(userId) {
   if (!res.ok) throw new Error('Failed to fetch leaderboard');
   return res.json();
 }
+
+export async function fetchDailyList(userId, count = 30) {
+  const res = await fetch(`${API_BASE}/api/daily-list?userId=${encodeURIComponent(userId)}&count=${count}`);
+  if (!res.ok) throw new Error('Failed to fetch daily list');
+  return res.json();
+}
+
+export async function completeDailyList(userId) {
+  const res = await fetch(`${API_BASE}/api/daily-list/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId }),
+  });
+  if (!res.ok) throw new Error('Failed to complete daily list');
+  return res.json();
+}

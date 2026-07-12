@@ -1,7 +1,7 @@
 import { MongoClient } from 'mongodb';
 
 const MONGODB_URI = process.env.MONGODB_URL_TASK_MANAGER;
-const DB_NAME = process.env.DATABASE_NAME_TASK_MANAGER || 'task-manager';
+const DB_NAME = process.env.MONGO_DB_NAME || 'task-manager';
 
 let client = null;
 
@@ -32,7 +32,40 @@ function parseBody(req) {
   });
 }
 
-// Simple router
+// SM-2 spaced repetition algorithm.
+function sm2(quality, prevEase, prevInterval, prevRepetitions) {
+  let ease = prevEase || 2.5;
+  let interval = prevInterval || 0;
+  let repetitions = prevRepetitions || 0;
+
+  if (quality < 3) {
+    repetitions = 0;
+    interval = 1;
+  } else {
+    if (repetitions === 0) {
+      interval = 1;
+    } else if (repetitions === 1) {
+      interval = 6;
+    } else {
+      interval = Math.round(interval * ease);
+    }
+    repetitions += 1;
+  }
+
+  ease = ease + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+  if (ease < 1.3) ease = 1.3;
+
+  const nextReview = new Date();
+  nextReview.setDate(nextReview.getDate() + interval);
+  nextReview.setHours(0, 0, 0, 0);
+
+  return { ease: Math.round(ease * 100) / 100, interval, repetitions, nextReview };
+}
+
+function outcomeToQuality(outcome) {
+  return outcome === 'mastered' ? 4 : 1;
+}
+
 export default async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const path = url.pathname.replace(/^\/api/, '') || '/';
@@ -50,7 +83,19 @@ export default async function handler(req, res) {
 
       await attempts.insertOne({ userId, wordId, deckKey: deckKey || null, outcome, createdAt: new Date() });
 
-      const progress = await progressCol.findOne({ userId }) || { userId, wordStreaks: {}, masteredIds: [], learningIds: [], failCounts: {}, updatedAt: new Date() };
+      const progress = await progressCol.findOne({ userId }) || {
+        userId,
+        wordStreaks: {},
+        masteredIds: [],
+        learningIds: [],
+        failCounts: {},
+        wordEase: {},
+        wordInterval: {},
+        wordRepetitions: {},
+        wordNextReview: {},
+        updatedAt: new Date(),
+      };
+
       const wordStreaks = progress.wordStreaks || {};
       const failCounts = progress.failCounts || {};
       const current = wordStreaks[wordId] || 0;
@@ -63,12 +108,39 @@ export default async function handler(req, res) {
       if (outcome === 'mastered') {
         if (!masteredIds.includes(wordId)) masteredIds.push(wordId);
         learningIds = learningIds.filter((id) => id !== wordId);
+        delete failCounts[wordId];
       } else {
         if (!learningIds.includes(wordId)) learningIds.push(wordId);
         masteredIds = masteredIds.filter((id) => id !== wordId);
       }
 
-      await progressCol.updateOne({ userId }, { $set: { wordStreaks, failCounts, masteredIds, learningIds, updatedAt: new Date() } }, { upsert: true });
+      // SM-2 scheduling
+      const quality = outcomeToQuality(outcome);
+      const wordEase = progress.wordEase || {};
+      const wordInterval = progress.wordInterval || {};
+      const wordRepetitions = progress.wordRepetitions || {};
+      const wordNextReview = progress.wordNextReview || {};
+
+      const sm2Result = sm2(quality, wordEase[wordId], wordInterval[wordId], wordRepetitions[wordId] || 0);
+
+      wordEase[wordId] = sm2Result.ease;
+      wordInterval[wordId] = sm2Result.interval;
+      wordRepetitions[wordId] = sm2Result.repetitions;
+      wordNextReview[wordId] = sm2Result.nextReview.toISOString();
+
+      await progressCol.updateOne(
+        { userId },
+        {
+          $set: {
+            wordStreaks, failCounts, masteredIds, learningIds,
+            wordEase, wordInterval, wordRepetitions, wordNextReview,
+            lastReviewDate: new Date().toISOString(),
+            updatedAt: new Date(),
+          },
+        },
+        { upsert: true }
+      );
+
       return json(res, { ok: true });
     }
 
@@ -78,12 +150,20 @@ export default async function handler(req, res) {
       if (!userId) return json(res, { error: 'userId required' }, 400);
       const db = await getDb();
       const progress = await db.collection('flash_progress').findOne({ userId });
-      if (!progress) return json(res, { wordStreaks: {}, masteredIds: [], learningIds: [], failCounts: {} });
+      if (!progress) {
+        return json(res, {
+          wordStreaks: {}, masteredIds: [], learningIds: [], failCounts: {},
+          wordEase: {}, wordInterval: {}, wordNextReview: {},
+        });
+      }
       return json(res, {
         wordStreaks: progress.wordStreaks || {},
         masteredIds: progress.masteredIds || [],
         learningIds: progress.learningIds || [],
         failCounts: progress.failCounts || {},
+        wordEase: progress.wordEase || {},
+        wordInterval: progress.wordInterval || {},
+        wordNextReview: progress.wordNextReview || {},
       });
     }
 
@@ -110,7 +190,17 @@ export default async function handler(req, res) {
       const wordStreaks = progress?.wordStreaks || {};
       const hardWordIds = Object.entries(wordStreaks).filter(([, s]) => s <= -2).map(([id]) => id);
 
-      return json(res, { dailyAttempts: daily, weeklyAttempts: weekly, hardWordIds, totalWordsAttempted: allAttempts.length });
+      const wordNextReview = progress?.wordNextReview || {};
+      const todayStr = startOfToday.toISOString().split('T')[0];
+      const dueCount = Object.entries(wordNextReview).filter(([, d]) => {
+        const revDate = new Date(d).toISOString().split('T')[0];
+        return revDate <= todayStr;
+      }).length;
+
+      return json(res, {
+        dailyAttempts: daily, weeklyAttempts: weekly, hardWordIds,
+        totalWordsAttempted: allAttempts.length, dueCount,
+      });
     }
 
     // GET /api/decks
@@ -120,6 +210,118 @@ export default async function handler(req, res) {
       if (url.searchParams.get('deckKey')) query.deckKey = url.searchParams.get('deckKey');
       const decks = await db.collection('flash_decks').find(query).toArray();
       return json(res, decks);
+    }
+
+    // GET /api/daily-list?userId=X&count=30
+    if (req.method === 'GET' && path === '/daily-list') {
+      const userId = url.searchParams.get('userId');
+      const count = parseInt(url.searchParams.get('count') || '30', 10);
+      if (!userId) return json(res, { error: 'userId required' }, 400);
+
+      const db = await getDb();
+
+      const decks = await db.collection('flash_decks').find({}).toArray();
+      const allWords = [];
+      const seen = new Set();
+      for (const deck of decks) {
+        for (const w of deck.words || []) {
+          if (!seen.has(w.id)) {
+            seen.add(w.id);
+            allWords.push(w);
+          }
+        }
+      }
+
+      const progress = await db.collection('flash_progress').findOne({ userId });
+      const wordEase = progress?.wordEase || {};
+      const wordNextReview = progress?.wordNextReview || {};
+      const wordStreaks = progress?.wordStreaks || {};
+      const learningIds = new Set(progress?.learningIds || []);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const scored = allWords.map((w) => {
+        const nextReviewRaw = wordNextReview[w.id];
+        const ease = wordEase[w.id] || 2.5;
+        const streak = wordStreaks[w.id] || 0;
+        let priority = 0;
+        let category = 'new';
+
+        if (nextReviewRaw) {
+          const nextReview = new Date(nextReviewRaw);
+          const daysOverdue = Math.floor((today - nextReview) / (1000 * 60 * 60 * 24));
+          if (daysOverdue >= 0) {
+            category = 'review';
+            priority = (daysOverdue + 1) * (3.0 - ease) * 10;
+            if (streak < 0) priority += Math.abs(streak) * 5;
+          } else {
+            category = 'scheduled';
+            priority = daysOverdue;
+          }
+        } else {
+          category = 'new';
+          priority = 0;
+        }
+
+        if (learningIds.has(w.id)) priority += 20;
+
+        return { ...w, priority, category, ease, streak, nextReview: nextReviewRaw || null };
+      });
+
+      scored.sort((a, b) => {
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return a.ease - b.ease;
+      });
+
+      const selected = scored.slice(0, count);
+
+      const todayStr = today.toISOString().split('T')[0];
+      const existingList = await db.collection('flash_daily_lists').findOne({ userId, date: todayStr });
+
+      await db.collection('flash_daily_lists').updateOne(
+        { userId, date: todayStr },
+        {
+          $set: {
+            userId, date: todayStr,
+            wordIds: selected.map((w) => w.id),
+            count: selected.length,
+            completed: existingList?.completed || false,
+            updatedAt: new Date(),
+          },
+        },
+        { upsert: true }
+      );
+
+      const newCount = selected.filter((w) => w.category === 'new').length;
+      const reviewCount = selected.filter((w) => w.category === 'review').length;
+
+      return json(res, {
+        words: selected,
+        total: selected.length,
+        newCount,
+        reviewCount,
+        learningCount: selected.filter((w) => learningIds.has(w.id)).length,
+        completed: existingList?.completed || false,
+      });
+    }
+
+    // POST /api/daily-list/complete
+    if (req.method === 'POST' && path === '/daily-list/complete') {
+      const { userId } = await parseBody(req);
+      if (!userId) return json(res, { error: 'userId required' }, 400);
+
+      const db = await getDb();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0];
+
+      await db.collection('flash_daily_lists').updateOne(
+        { userId, date: todayStr },
+        { $set: { completed: true, completedAt: new Date() } }
+      );
+
+      return json(res, { ok: true });
     }
 
     // POST /api/sessions
@@ -177,6 +379,13 @@ export default async function handler(req, res) {
       const masteredIds = progress?.masteredIds || [];
       const hardIds = Object.entries(progress?.wordStreaks || {}).filter(([, s]) => s <= -2).map(([id]) => id);
 
+      const wordNextReview = progress?.wordNextReview || {};
+      const todayStr = startOfToday.toISOString().split('T')[0];
+      const dueCount = Object.entries(wordNextReview).filter(([, d]) => {
+        const revDate = new Date(d).toISOString().split('T')[0];
+        return revDate <= todayStr;
+      }).length;
+
       const bestSession = allSessions.length > 0
         ? allSessions.reduce((best, s) => (s.score || 0) > (best.score || 0) ? s : best, allSessions[0])
         : null;
@@ -191,7 +400,7 @@ export default async function handler(req, res) {
         hardWordCount: hardIds.length, hardWordIds: hardIds, masteredIds,
         sessionsToday: todaySessions, sessionsThisWeek: weekSessions,
         sessionsThisMonth: monthSessions, dailyStreak,
-        bestScore: bestSession?.score || 0, recentSessions: allSessions.slice(0, 10),
+        bestScore: bestSession?.score || 0, recentSessions: allSessions.slice(0, 10), dueCount,
       });
     }
 

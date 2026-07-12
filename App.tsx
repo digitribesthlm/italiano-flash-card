@@ -4,7 +4,7 @@ import { GoogleGenAI, Modality } from '@google/genai';
 import { Word, LanguageMode } from './types';
 import { DECKS } from './data/words';
 import Flashcard from './components/Flashcard';
-import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard } from './api';
+import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard, fetchDailyList, completeDailyList } from './api';
 
 // Audio Helpers
 function decode(base64: string) {
@@ -75,7 +75,7 @@ const App: React.FC = () => {
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [currentUser, setCurrentUser] = useState<string | null>(null);
-  const [stats, setStats] = useState<{ dailyAttempts: number; weeklyAttempts: number; hardWordIds: string[] } | null>(null);
+  const [stats, setStats] = useState<{ dailyAttempts: number; weeklyAttempts: number; hardWordIds: string[]; dueCount?: number } | null>(null);
   const [progressLoadedFromApi, setProgressLoadedFromApi] = useState(false);
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('mixed');
   const [showHardList, setShowHardList] = useState(false);
@@ -88,6 +88,10 @@ const App: React.FC = () => {
   } | null>(null);
   const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
   const [sessionSaved, setSessionSaved] = useState(false);
+
+  // Daily list state
+  const [dailyListMeta, setDailyListMeta] = useState<{ newCount: number; reviewCount: number; learningCount: number; completed: boolean } | null>(null);
+  const [isLoadingDailyList, setIsLoadingDailyList] = useState(false);
   
   // Audio context persistence
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -163,6 +167,7 @@ const App: React.FC = () => {
           dailyAttempts: statsData.dailyAttempts ?? 0,
           weeklyAttempts: statsData.weeklyAttempts ?? 0,
           hardWordIds: statsData.hardWordIds ?? [],
+          dueCount: statsData.dueCount ?? 0,
         });
       } catch (_) {
         // API unavailable (e.g. server not running); keep using localStorage
@@ -173,7 +178,12 @@ const App: React.FC = () => {
 
   // Handle deck changes and practice mode
   useEffect(() => {
-    shuffleWithMode(practiceMode);
+    if (activeDeckKey === 'DAILY_LIST') {
+      loadDailyList(30);
+    } else {
+      setDailyListMeta(null);
+      shuffleWithMode(practiceMode);
+    }
   }, [activeDeckKey, practiceMode]);
 
   // After loading progress from API, reshuffle so deck reflects server state
@@ -195,6 +205,10 @@ const App: React.FC = () => {
       wordsLearning: learningIds.size,
       duration,
     }).then(() => setSessionSaved(true)).catch(() => {});
+    // Mark daily list as completed if applicable
+    if (activeDeckKey === 'DAILY_LIST') {
+      completeDailyList(currentUser).catch(() => {});
+    }
   }, [isSessionComplete, isAuthenticated, currentUser, sessionSaved]);
 
   // Fetch leaderboard data when progress modal opens (snapshot current state for fallback)
@@ -246,6 +260,9 @@ const App: React.FC = () => {
     } else if (activeDeckKey === 'EASY_ALL') {
       baseList = getAllWords().filter((w) => masteredIds.has(w.id));
       if (baseList.length === 0) baseList = getAllWords();
+    } else if (activeDeckKey === 'DAILY_LIST') {
+      // Daily list is loaded separately via loadDailyList()
+      return;
     } else {
       baseList = [...DECKS[activeDeckKey as keyof typeof DECKS]];
     }
@@ -270,6 +287,34 @@ const App: React.FC = () => {
     setSessionSaved(false);
     setSessionStartTime(Date.now());
   };
+
+  const loadDailyList = useCallback(async (count = 30) => {
+    if (!isAuthenticated || !currentUser) return;
+    setIsLoadingDailyList(true);
+    try {
+      const data = await fetchDailyList(currentUser, count);
+      if (data.words?.length) {
+        setShuffledVocab(data.words);
+        setDailyListMeta({
+          newCount: data.newCount ?? 0,
+          reviewCount: data.reviewCount ?? 0,
+          learningCount: data.learningCount ?? 0,
+          completed: data.completed ?? false,
+        });
+        setCurrentIndex(0);
+        setIsFlipped(false);
+        setAiContext(null);
+        setIsSessionComplete(false);
+        setSessionStreak(0);
+        setSessionSaved(false);
+        setSessionStartTime(Date.now());
+      }
+    } catch (_) {
+      // fall back to empty — server might not be running
+    } finally {
+      setIsLoadingDailyList(false);
+    }
+  }, [isAuthenticated, currentUser]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,6 +363,7 @@ const App: React.FC = () => {
           dailyAttempts: s.dailyAttempts ?? 0,
           weeklyAttempts: s.weeklyAttempts ?? 0,
           hardWordIds: s.hardWordIds ?? [],
+          dueCount: s.dueCount ?? 0,
         })).catch(() => {});
       });
     }
@@ -509,7 +555,7 @@ const App: React.FC = () => {
   const currentWord = shuffledVocab[currentIndex];
   const currentCardStreak = cardStreaks[currentWord.id] || 0;
   const masteryStatus = masteredIds.has(currentWord.id) ? 'mastered' : learningIds.has(currentWord.id) ? 'learning' : null;
-  const totalInCurrentDeck = (activeDeckKey === 'HARD_ALL' || activeDeckKey === 'EASY_ALL')
+  const totalInCurrentDeck = (activeDeckKey === 'HARD_ALL' || activeDeckKey === 'EASY_ALL' || activeDeckKey === 'DAILY_LIST')
     ? shuffledVocab.length
     : (DECKS[activeDeckKey as keyof typeof DECKS] || []).length;
   const masteryPercentage = Math.round((masteredIds.size / Object.values(DECKS).reduce((acc, deck) => acc + deck.length, 0)) * 100);
@@ -540,18 +586,18 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex flex-col gap-3 w-full">
-            <button 
-              onClick={() => shuffleWithMode('hard')}
+            <button
+              onClick={() => activeDeckKey === 'DAILY_LIST' ? loadDailyList(30) : shuffleWithMode('hard')}
               className="w-full py-4 bg-orange-500 text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-xl shadow-orange-100 active:scale-95 flex items-center justify-center gap-2"
             >
               <i className="fa-solid fa-bolt"></i>
-              Focus on Hard Words
+              {activeDeckKey === 'DAILY_LIST' ? 'Reload Daily List' : 'Focus on Hard Words'}
             </button>
-            <button 
-              onClick={() => shuffleWithMode(practiceMode)}
+            <button
+              onClick={() => activeDeckKey === 'DAILY_LIST' ? loadDailyList(30) : shuffleWithMode(practiceMode)}
               className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-all shadow-xl active:scale-95"
             >
-              Restart Deck
+              {activeDeckKey === 'DAILY_LIST' ? 'Reload Daily List' : 'Restart Deck'}
             </button>
           </div>
         </div>
@@ -709,6 +755,9 @@ const App: React.FC = () => {
             <option value="SALVATORE">💾 Salvatore</option>
             <option value="ROMANIA">⛰️ Romania</option>
             <option value="FUNCTION">🔤 Function Words</option>
+            {(stats?.dueCount ?? 0) > 0
+              ? <option value="DAILY_LIST">📅 Today's Review ({stats?.dueCount ?? 0})</option>
+              : <option value="DAILY_LIST">📅 Daily Practice (30)</option>}
             {allHardCount >= 3 && <option value="HARD_ALL">🔥 Hard Words ({allHardCount})</option>}
             {allMasteredCount >= 3 && <option value="EASY_ALL">✅ Easy Words ({allMasteredCount})</option>}
           </select>
@@ -748,6 +797,12 @@ const App: React.FC = () => {
               <span title="Today">📅 {stats.dailyAttempts}</span>
               <span className="text-slate-300">|</span>
               <span title="This week">📆 {stats.weeklyAttempts}</span>
+              {(stats.dueCount ?? 0) > 0 && (
+                <>
+                  <span className="text-slate-300">|</span>
+                  <span title="Words due for review" className="text-amber-600">⏰ {stats.dueCount}</span>
+                </>
+              )}
               {stats.hardWordIds.length > 0 && (
                 <>
                   <span className="text-slate-300">|</span>
@@ -775,7 +830,7 @@ const App: React.FC = () => {
         <div className="flex justify-between items-end mb-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Deck: {activeDeckKey === 'HARD_ALL' ? 'All Hard' : activeDeckKey === 'EASY_ALL' ? 'All Easy' : activeDeckKey === 'VLOG' ? 'Vlog' : activeDeckKey === 'PRADA' ? 'Prada' : activeDeckKey === 'TIS' ? 'TIS' : activeDeckKey === 'ADVERBS' ? 'Adverbs' : activeDeckKey === 'PHRASES' ? 'Phrases' : activeDeckKey === 'YOUTUBE' ? 'Mutti' : activeDeckKey === 'FABRIZIO' ? 'Fabrizio' : activeDeckKey === 'SALVATORE' ? 'Salvatore' : activeDeckKey === 'ROMANIA' ? 'Romania' : activeDeckKey === 'FUNCTION' ? 'Function' : 'Classic'}
+              Deck: {activeDeckKey === 'HARD_ALL' ? 'All Hard' : activeDeckKey === 'EASY_ALL' ? 'All Easy' : activeDeckKey === 'DAILY_LIST' ? 'Daily Review' : activeDeckKey === 'VLOG' ? 'Vlog' : activeDeckKey === 'PRADA' ? 'Prada' : activeDeckKey === 'TIS' ? 'TIS' : activeDeckKey === 'ADVERBS' ? 'Adverbs' : activeDeckKey === 'PHRASES' ? 'Phrases' : activeDeckKey === 'YOUTUBE' ? 'Mutti' : activeDeckKey === 'FABRIZIO' ? 'Fabrizio' : activeDeckKey === 'SALVATORE' ? 'Salvatore' : activeDeckKey === 'ROMANIA' ? 'Romania' : activeDeckKey === 'FUNCTION' ? 'Function' : 'Classic'}
               {practiceMode === 'hard' && ' · Hard'}
               {practiceMode === 'mastered' && ' · Mastered'}
             </span>
@@ -783,11 +838,33 @@ const App: React.FC = () => {
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{currentIndex + 1} / {totalInCurrentDeck}</span>
         </div>
         <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden flex">
-          <div 
-            className="h-full bg-emerald-500 transition-all duration-300" 
+          <div
+            className="h-full bg-emerald-500 transition-all duration-300"
             style={{ width: `${((currentIndex + 1) / totalInCurrentDeck) * 100}%` }}
           ></div>
         </div>
+        {activeDeckKey === 'DAILY_LIST' && dailyListMeta && (
+          <div className="flex items-center gap-2 mt-2 justify-center">
+            {dailyListMeta.reviewCount > 0 && (
+              <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">🔄 {dailyListMeta.reviewCount} review</span>
+            )}
+            {dailyListMeta.learningCount > 0 && (
+              <span className="text-[9px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">📚 {dailyListMeta.learningCount} learning</span>
+            )}
+            {dailyListMeta.newCount > 0 && (
+              <span className="text-[9px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">✨ {dailyListMeta.newCount} new</span>
+            )}
+            {dailyListMeta.completed && (
+              <span className="text-[9px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">✓ Done today</span>
+            )}
+          </div>
+        )}
+        {isLoadingDailyList && (
+          <div className="flex items-center justify-center gap-2 mt-2 text-[10px] text-gray-400">
+            <i className="fa-solid fa-spinner animate-spin"></i>
+            <span>Loading your daily review...</span>
+          </div>
+        )}
       </div>
 
       <main className="flex-1 w-full flex flex-col items-center justify-center p-6 mt-2">
@@ -859,8 +936,8 @@ const App: React.FC = () => {
           <i className="fa-solid fa-chevron-left"></i>
         </button>
 
-        <button 
-          onClick={() => shuffleWithMode(practiceMode)}
+        <button
+          onClick={() => activeDeckKey === 'DAILY_LIST' ? loadDailyList(30) : shuffleWithMode(practiceMode)}
           className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center text-white hover:bg-emerald-600 transition-all active:rotate-180 shadow-lg"
         >
           <i className="fa-solid fa-rotate text-lg"></i>
