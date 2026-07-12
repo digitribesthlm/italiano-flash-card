@@ -41,6 +41,7 @@ const STORAGE_KEY_MASTERED = 'italiano_flash_mastered_ids';
 const STORAGE_KEY_FAIL_COUNTS = 'italiano_flash_fail_counts';
 const STORAGE_KEY_AUTH = 'italiano_flash_auth';
 const STORAGE_KEY_USER = 'italiano_flash_user';
+const STORAGE_KEY_BEST_SCORE = 'italiano_flash_best_score';
 
 type PracticeMode = 'mixed' | 'hard' | 'mastered';
 
@@ -114,6 +115,10 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : {};
   });
   const [score, setScore] = useState(0);
+  const [bestScore, setBestScore] = useState<number>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_BEST_SCORE);
+    return saved ? parseInt(saved, 10) : 0;
+  });
   const [sessionStreak, setSessionStreak] = useState(0);
   const [maxStreak, setMaxStreak] = useState(0);
 
@@ -192,6 +197,15 @@ const App: React.FC = () => {
     setProgressLoadedFromApi(false);
     shuffleWithMode(practiceMode);
   }, [progressLoadedFromApi]);
+
+  // Update best score locally when session ends
+  useEffect(() => {
+    if (!isSessionComplete) return;
+    if (score > bestScore) {
+      setBestScore(score);
+      localStorage.setItem(STORAGE_KEY_BEST_SCORE, String(score));
+    }
+  }, [isSessionComplete]);
 
   // Save session to MongoDB when completed
   useEffect(() => {
@@ -811,9 +825,12 @@ const App: React.FC = () => {
               )}
             </div>
           )}
-          <div className="flex items-center gap-1.5 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-100">
+          <div className="flex items-center gap-1.5 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-100" title={`Best: ${bestScore}`}>
             <i className="fa-solid fa-star text-yellow-500 text-[10px]"></i>
             <span className="text-xs font-black text-yellow-700">{score}</span>
+            {bestScore > 0 && (
+              <span className="text-[9px] text-yellow-400 font-medium">{score >= bestScore && score > 0 ? '🔥' : ''}{bestScore}</span>
+            )}
           </div>
           
           <button 
