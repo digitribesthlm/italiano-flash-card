@@ -4,7 +4,7 @@ import { GoogleGenAI, Modality } from '@google/genai';
 import { Word, LanguageMode } from './types';
 import { DECKS } from './data/words';
 import Flashcard from './components/Flashcard';
-import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard, fetchDailyList, completeDailyList } from './api';
+import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard, fetchDailyList, completeDailyList, fetchDecks } from './api';
 
 // Audio Helpers
 function decode(base64: string) {
@@ -45,8 +45,8 @@ const STORAGE_KEY_BEST_SCORE = 'italiano_flash_best_score';
 
 type PracticeMode = 'mixed' | 'hard' | 'mastered';
 
-function getAllWords(): Word[] {
-  return Object.values(DECKS).flat();
+function getAllWords(decks: Record<string, Word[]>): Word[] {
+  return Object.values(decks).flat();
 }
 
 function getHardWordIds(cardStreaks: Record<string, number>, learningIds: Set<string>, statsHardIds: string[], failCounts?: Record<string, number>): string[] {
@@ -62,6 +62,10 @@ function getHardWordIds(cardStreaks: Record<string, number>, learningIds: Set<st
 
 const App: React.FC = () => {
   const [activeDeckKey, setActiveDeckKey] = useState<string>('CLASSIC');
+  const [decks, setDecks] = useState<Record<string, Word[]>>(DECKS);
+  const [deckList, setDeckList] = useState<{key: string; label: string}[]>(
+    Object.keys(DECKS).map(k => ({ key: k, label: k }))
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [mode, setMode] = useState<LanguageMode>(LanguageMode.EN_TO_IT);
@@ -121,6 +125,25 @@ const App: React.FC = () => {
   });
   const [sessionStreak, setSessionStreak] = useState(0);
   const [maxStreak, setMaxStreak] = useState(0);
+
+  // Load decks from MongoDB API (fall back to static import)
+  useEffect(() => {
+    fetchDecks().then((data: any[]) => {
+      if (!data || data.length === 0) return;
+      const map: Record<string, Word[]> = {};
+      const list: { key: string; label: string }[] = [];
+      for (const d of data) {
+        if (d.deckKey && d.words) {
+          map[d.deckKey] = d.words;
+          list.push({ key: d.deckKey, label: d.label || d.deckKey });
+        }
+      }
+      setDecks(map);
+      setDeckList(list);
+    }).catch(() => {
+      // keep static DECKS fallback
+    });
+  }, []);
 
   // Persistence Effects
   useEffect(() => {
@@ -269,24 +292,24 @@ const App: React.FC = () => {
     let baseList: Word[];
 
     if (activeDeckKey === 'HARD_ALL') {
-      baseList = getAllWords().filter((w) => hardIds.includes(w.id));
-      if (baseList.length === 0) baseList = getAllWords();
+      baseList = getAllWords(decks).filter((w) => hardIds.includes(w.id));
+      if (baseList.length === 0) baseList = getAllWords(decks);
     } else if (activeDeckKey === 'EASY_ALL') {
-      baseList = getAllWords().filter((w) => masteredIds.has(w.id));
-      if (baseList.length === 0) baseList = getAllWords();
+      baseList = getAllWords(decks).filter((w) => masteredIds.has(w.id));
+      if (baseList.length === 0) baseList = getAllWords(decks);
     } else if (activeDeckKey === 'DAILY_LIST') {
       // Daily list is loaded separately via loadDailyList()
       return;
     } else {
-      baseList = [...DECKS[activeDeckKey as keyof typeof DECKS]];
+      baseList = [...decks[activeDeckKey]];
     }
 
     if (mode === 'hard') {
       baseList = baseList.filter((w) => (cardStreaks[w.id] || 0) <= -2 || learningIds.has(w.id) || hardIds.includes(w.id));
-      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords().filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords().filter((w) => masteredIds.has(w.id)) : [...DECKS[activeDeckKey as keyof typeof DECKS]];
+      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords(decks).filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords(decks).filter((w) => masteredIds.has(w.id)) : [...DECKS[activeDeckKey as keyof typeof DECKS]];
     } else if (mode === 'mastered') {
       baseList = baseList.filter((w) => masteredIds.has(w.id));
-      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords().filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords().filter((w) => masteredIds.has(w.id)) : [...DECKS[activeDeckKey as keyof typeof DECKS]];
+      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords(decks).filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords(decks).filter((w) => masteredIds.has(w.id)) : [...DECKS[activeDeckKey as keyof typeof DECKS]];
     }
     // 'mixed' = full deck (mastered words stay in so they get reviewed Duolingo-style)
 
@@ -571,8 +594,9 @@ const App: React.FC = () => {
   const masteryStatus = masteredIds.has(currentWord.id) ? 'mastered' : learningIds.has(currentWord.id) ? 'learning' : null;
   const totalInCurrentDeck = (activeDeckKey === 'HARD_ALL' || activeDeckKey === 'EASY_ALL' || activeDeckKey === 'DAILY_LIST')
     ? shuffledVocab.length
-    : (DECKS[activeDeckKey as keyof typeof DECKS] || []).length;
-  const masteryPercentage = Math.round((masteredIds.size / Object.values(DECKS).reduce((acc, deck) => acc + deck.length, 0)) * 100);
+    : (decks[activeDeckKey] || []).length;
+  const totalWordCount = (Object.values(decks) as Word[][]).reduce((acc, deck) => acc + deck.length, 0);
+  const masteryPercentage = Math.round((masteredIds.size / (totalWordCount || 1)) * 100);
 
   if (isSessionComplete) {
     return (
@@ -620,7 +644,7 @@ const App: React.FC = () => {
   }
 
   const hardIds = getHardWordIds(cardStreaks, learningIds, stats?.hardWordIds ?? [], failCounts);
-  const hardWordsList = getAllWords().filter((w) => hardIds.includes(w.id));
+  const hardWordsList = getAllWords(decks).filter((w) => hardIds.includes(w.id));
   const allHardCount = hardIds.length;
   const allMasteredCount = masteredIds.size;
 
@@ -759,16 +783,9 @@ const App: React.FC = () => {
             className="bg-gray-100 text-[10px] font-black uppercase px-2 py-1 rounded-lg border-none focus:ring-2 focus:ring-emerald-500 text-gray-600 cursor-pointer"
           >
             <option value="CLASSIC">📚 Cultural</option>
-            <option value="VLOG">🎬 Vlog Session</option>
-            <option value="PRADA">👗 Prada List</option>
-            <option value="TIS">💊 TIS Pharma</option>
-            <option value="ADVERBS">🎯 Adverbs & Questions</option>
-            <option value="PHRASES">💬 Phrases</option>
-            <option value="YOUTUBE">🍅 Mutti</option>
-            <option value="FABRIZIO">⚽ Fabrizio</option>
-            <option value="SALVATORE">💾 Salvatore</option>
-            <option value="ROMANIA">⛰️ Romania</option>
-            <option value="FUNCTION">🔤 Function Words</option>
+            {deckList.filter(d => d.key !== 'CLASSIC').map(d => (
+              <option key={d.key} value={d.key}>{d.label}</option>
+            ))}
             {(stats?.dueCount ?? 0) > 0
               ? <option value="DAILY_LIST">📅 Today's Review ({stats?.dueCount ?? 0})</option>
               : <option value="DAILY_LIST">📅 Daily Practice (30)</option>}
@@ -847,7 +864,7 @@ const App: React.FC = () => {
         <div className="flex justify-between items-end mb-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Deck: {activeDeckKey === 'HARD_ALL' ? 'All Hard' : activeDeckKey === 'EASY_ALL' ? 'All Easy' : activeDeckKey === 'DAILY_LIST' ? 'Daily Review' : activeDeckKey === 'VLOG' ? 'Vlog' : activeDeckKey === 'PRADA' ? 'Prada' : activeDeckKey === 'TIS' ? 'TIS' : activeDeckKey === 'ADVERBS' ? 'Adverbs' : activeDeckKey === 'PHRASES' ? 'Phrases' : activeDeckKey === 'YOUTUBE' ? 'Mutti' : activeDeckKey === 'FABRIZIO' ? 'Fabrizio' : activeDeckKey === 'SALVATORE' ? 'Salvatore' : activeDeckKey === 'ROMANIA' ? 'Romania' : activeDeckKey === 'FUNCTION' ? 'Function' : 'Classic'}
+              Deck: {activeDeckKey === 'HARD_ALL' ? 'All Hard' : activeDeckKey === 'EASY_ALL' ? 'All Easy' : activeDeckKey === 'DAILY_LIST' ? 'Daily Review' : (deckList.find(d => d.key === activeDeckKey)?.label || activeDeckKey)}
               {practiceMode === 'hard' && ' · Hard'}
               {practiceMode === 'mastered' && ' · Mastered'}
             </span>

@@ -636,6 +636,76 @@ export const VOCABULARY_FUNCTION: Word[] = [
   { id: 'fw60', en: 'I wish / maybe / perhaps', it: 'magari', category: 'grammar', description: 'colloquial, multiple uses.' },
 ];
 
+export const VOCABULARY_SLEEP: Word[] = [
+  // Sleep & Health Tech
+  { id: 'sl1', en: 'sleep', it: 'sonno', category: 'content' },
+  { id: 'sl2', en: 'mattress', it: 'materasso', category: 'content' },
+  { id: 'sl3', en: 'mattress cover', it: 'coprimaterasso', category: 'content' },
+  { id: 'sl4', en: 'sensor', it: 'sensore', category: 'content' },
+  { id: 'sl5', en: 'to heat', it: 'riscaldare', category: 'content' },
+  { id: 'sl6', en: 'to cool', it: 'raffreddare', category: 'content' },
+  { id: 'sl7', en: 'to snore', it: 'russare', category: 'content' },
+  { id: 'sl8', en: 'alarm clock', it: 'sveglia', category: 'content' },
+  { id: 'sl9', en: 'biometric', it: 'biometrico', category: 'content' },
+  { id: 'sl10', en: 'recovery (physical)', it: 'recupero', category: 'content' },
+  // Sports & Performance
+  { id: 'sl11', en: 'skiing', it: 'sci', category: 'content' },
+  { id: 'sl12', en: 'coach / trainer', it: 'allenatore', category: 'content' },
+  { id: 'sl13', en: 'race / competition', it: 'gara', category: 'content' },
+  { id: 'sl14', en: 'competitive', it: 'competitivo', category: 'content' },
+  { id: 'sl15', en: 'go-kart', it: 'go-kart', category: 'content' },
+  { id: 'sl16', en: 'to train', it: 'allenarsi', category: 'content' },
+  { id: 'sl17', en: 'athlete', it: 'atleta', category: 'content' },
+  // University & Law
+  { id: 'sl18', en: 'degree (university)', it: 'laurea', category: 'content' },
+  { id: 'sl19', en: 'lawyer', it: 'avvocato', category: 'content' },
+  { id: 'sl20', en: 'law firm', it: 'studio legale', category: 'content' },
+  { id: 'sl21', en: 'to graduate', it: 'laurearsi', category: 'content' },
+  { id: 'sl22', en: 'internship', it: 'tirocinio', category: 'content' },
+  { id: 'sl23', en: 'exam', it: 'esame', category: 'content' },
+  { id: 'sl24', en: 'partner (of a firm)', it: 'socio', category: 'content' },
+  // Entrepreneurship & Startups
+  { id: 'sl25', en: 'startup', it: 'startup', category: 'content' },
+  { id: 'sl26', en: 'entrepreneur', it: 'imprenditore', category: 'content' },
+  { id: 'sl27', en: 'to found / create', it: 'fondare', category: 'content' },
+  { id: 'sl28', en: 'accelerator', it: 'acceleratore', category: 'content' },
+  { id: 'sl29', en: 'pre-order', it: 'prevendita', category: 'content' },
+  { id: 'sl30', en: 'validation (market)', it: 'validazione', category: 'content' },
+  { id: 'sl31', en: 'to scale', it: 'scalare', category: 'content' },
+  { id: 'sl32', en: 'to sell (a company)', it: 'vendere', category: 'content' },
+  // Manufacturing & Product
+  { id: 'sl33', en: 'production', it: 'produzione', category: 'content' },
+  { id: 'sl34', en: 'prototype', it: 'prototipo', category: 'content' },
+  { id: 'sl35', en: 'supplier', it: 'fornitore', category: 'content' },
+  { id: 'sl36', en: 'factory / manufacturing plant', it: 'stabilimento', category: 'content' },
+  { id: 'sl37', en: 'to produce / manufacture', it: 'produrre', category: 'content' },
+  { id: 'sl38', en: 'unit (product)', it: 'unità', category: 'content' },
+  { id: 'sl39', en: 'hardware', it: 'hardware', category: 'content' },
+  { id: 'sl40', en: 'to ship', it: 'spedire', category: 'content' },
+  // Fundraising & Finance
+  { id: 'sl41', en: 'investor', it: 'investitore', category: 'content' },
+  { id: 'sl42', en: 'investment', it: 'investimento', category: 'content' },
+  { id: 'sl43', en: 'to raise (funds)', it: 'raccogliere', category: 'content' },
+  { id: 'sl44', en: 'revenue', it: 'fatturato', category: 'content' },
+  { id: 'sl45', en: 'profitable', it: 'redditizio', category: 'content' },
+  { id: 'sl46', en: 'IPO / stock listing', it: 'quotazione', category: 'content' },
+  { id: 'sl47', en: 'shares / stock', it: 'azioni', category: 'content' },
+  { id: 'sl48', en: 'cash flow', it: 'liquidità', category: 'content' },
+  // Drive & Personal Qualities
+  { id: 'sl49', en: 'drive / grit', it: 'grinta', category: 'content' },
+  { id: 'sl50', en: 'instinct / gut', it: 'istinto', category: 'content' },
+  { id: 'sl51', en: 'failure', it: 'fallimento', category: 'content' },
+  { id: 'sl52', en: 'opportunity', it: 'opportunità', category: 'content' },
+  { id: 'sl53', en: 'network (contacts)', it: 'rete', category: 'content' },
+  { id: 'sl54', en: 'risk', it: 'rischio', category: 'content' },
+  { id: 'sl55', en: 'goal / objective', it: 'obiettivo', category: 'content' },
+  { id: 'sl56', en: 'to bet / wager', it: 'scommettere', category: 'content' },
+  { id: 'sl57', en: 'obsessed', it: 'ossessionato', category: 'content' },
+  { id: 'sl58', en: 'dream', it: 'sogno', category: 'content' },
+  { id: 'sl59', en: 'to quit (a job)', it: 'licenziarsi', category: 'content' },
+  { id: 'sl60', en: 'advice', it: 'consiglio', category: 'content' },
+];
+
 export const DECKS = {
   CLASSIC: VOCABULARY_CLASSIC,
   VLOG: VOCABULARY_VLOG,
@@ -648,4 +718,5 @@ export const DECKS = {
   SALVATORE: VOCABULARY_SALVATORE,
   ROMANIA: VOCABULARY_ROMANIA,
   FUNCTION: VOCABULARY_FUNCTION,
+  SLEEP: VOCABULARY_SLEEP,
 };
