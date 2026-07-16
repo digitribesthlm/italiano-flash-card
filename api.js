@@ -60,6 +60,12 @@ export async function fetchDailyList(userId, count = 30) {
   return res.json();
 }
 
+export async function fetchDeckStats(userId) {
+  const res = await fetch(`${API_BASE}/api/deck-stats?userId=${encodeURIComponent(userId)}`);
+  if (!res.ok) throw new Error('Failed to fetch deck stats');
+  return res.json();
+}
+
 export async function completeDailyList(userId) {
   const res = await fetch(`${API_BASE}/api/daily-list/complete`, {
     method: 'POST',

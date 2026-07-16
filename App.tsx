@@ -4,7 +4,7 @@ import { GoogleGenAI, Modality } from '@google/genai';
 import { Word, LanguageMode } from './types';
 import { DECKS } from './data/words';
 import Flashcard from './components/Flashcard';
-import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard, fetchDailyList, completeDailyList, fetchDecks } from './api';
+import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard, fetchDailyList, completeDailyList, fetchDecks, fetchDeckStats } from './api';
 
 // Audio Helpers
 function decode(base64: string) {
@@ -91,6 +91,8 @@ const App: React.FC = () => {
     sessionsToday: number; sessionsThisWeek: number; sessionsThisMonth: number;
     dailyStreak: number; bestScore: number; recentSessions: any[];
   } | null>(null);
+  const [deckStats, setDeckStats] = useState<any[] | null>(null);
+  const [progressTab, setProgressTab] = useState<'overview' | 'decks'>('overview');
   const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
   const [sessionSaved, setSessionSaved] = useState(false);
 
@@ -266,6 +268,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!showProgress || !isAuthenticated || !currentUser) return;
+    setProgressTab('overview');
     fetchLeaderboard(currentUser)
       .then(setLeaderboard)
       .catch(() => {
@@ -285,6 +288,9 @@ const App: React.FC = () => {
           recentSessions: [],
         });
       });
+    fetchDeckStats(currentUser)
+      .then((d: any) => setDeckStats(d.decks || []))
+      .catch(() => setDeckStats([]));
   }, [showProgress, isAuthenticated, currentUser]);
 
   const shuffleWithMode = (mode: PracticeMode) => {
@@ -690,7 +696,21 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={() => setShowProgress(false)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-sm font-black text-gray-900">📊 Progress</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-black text-gray-900">📊 Progress</h3>
+                <div className="flex bg-gray-100 rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setProgressTab('overview')}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-colors ${progressTab === 'overview' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}
+                  >Overview</button>
+                  <button
+                    type="button"
+                    onClick={() => setProgressTab('decks')}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-colors ${progressTab === 'decks' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}
+                  >By Deck</button>
+                </div>
+              </div>
               <button type="button" onClick={() => setShowProgress(false)} className="text-gray-400 hover:text-gray-600 p-1">
                 <i className="fa-solid fa-xmark" />
               </button>
@@ -698,61 +718,124 @@ const App: React.FC = () => {
             <div className="p-4 overflow-y-auto flex-1 space-y-3">
               {leaderboard ? (
                 <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-emerald-50 p-3 rounded-xl text-center">
-                      <p className="text-[9px] text-emerald-600 font-bold uppercase">Total Score</p>
-                      <p className="text-xl font-black text-emerald-700">{leaderboard.totalScore}</p>
-                    </div>
-                    <div className="bg-blue-50 p-3 rounded-xl text-center">
-                      <p className="text-[9px] text-blue-600 font-bold uppercase">Mastered</p>
-                      <p className="text-xl font-black text-blue-700">{leaderboard.totalWordsMastered}</p>
-                    </div>
-                    <div className="bg-amber-50 p-3 rounded-xl text-center">
-                      <p className="text-[9px] text-amber-600 font-bold uppercase">Day Streak</p>
-                      <p className="text-xl font-black text-amber-700">{leaderboard.dailyStreak} 🔥</p>
-                    </div>
-                    <div className="bg-purple-50 p-3 rounded-xl text-center">
-                      <p className="text-[9px] text-purple-600 font-bold uppercase">Best Score</p>
-                      <p className="text-xl font-black text-purple-700">{leaderboard.bestScore}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-gray-50 p-2 rounded-xl text-center">
-                      <p className="text-[8px] text-gray-500 font-bold uppercase">Today</p>
-                      <p className="text-sm font-black text-gray-700">{leaderboard.sessionsToday}</p>
-                    </div>
-                    <div className="bg-gray-50 p-2 rounded-xl text-center">
-                      <p className="text-[8px] text-gray-500 font-bold uppercase">This Week</p>
-                      <p className="text-sm font-black text-gray-700">{leaderboard.sessionsThisWeek}</p>
-                    </div>
-                    <div className="bg-gray-50 p-2 rounded-xl text-center">
-                      <p className="text-[8px] text-gray-500 font-bold uppercase">This Month</p>
-                      <p className="text-sm font-black text-gray-700">{leaderboard.sessionsThisMonth}</p>
-                    </div>
-                  </div>
-                  {leaderboard.hardWordCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => { setShowProgress(false); setShowHardList(true); }}
-                      className="w-full py-3 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
-                    >
-                      🔥 {leaderboard.hardWordCount} hard words across all decks — tap to review
-                    </button>
-                  )}
-                  {leaderboard.recentSessions.length > 0 && (
-                    <div>
-                      <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">Recent Sessions</p>
-                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                        {leaderboard.recentSessions.slice(0, 10).map((s: any, i: number) => (
-                          <div key={i} className="flex justify-between items-center py-1.5 px-3 bg-gray-50 rounded-lg">
-                            <span className="text-xs text-gray-600">{new Date(s.createdAt).toLocaleDateString()}</span>
-                            <div className="flex items-center gap-3">
-                              <span className="text-[10px] text-gray-400">{s.deckKey}</span>
-                              <span className="text-xs font-bold text-emerald-600">{s.score} pts</span>
-                            </div>
-                          </div>
-                        ))}
+                  {progressTab === 'overview' && (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-emerald-50 p-3 rounded-xl text-center">
+                          <p className="text-[9px] text-emerald-600 font-bold uppercase">Total Score</p>
+                          <p className="text-xl font-black text-emerald-700">{leaderboard.totalScore}</p>
+                        </div>
+                        <div className="bg-blue-50 p-3 rounded-xl text-center">
+                          <p className="text-[9px] text-blue-600 font-bold uppercase">Mastered</p>
+                          <p className="text-xl font-black text-blue-700">{leaderboard.totalWordsMastered}</p>
+                        </div>
+                        <div className="bg-amber-50 p-3 rounded-xl text-center">
+                          <p className="text-[9px] text-amber-600 font-bold uppercase">Day Streak</p>
+                          <p className="text-xl font-black text-amber-700">{leaderboard.dailyStreak} 🔥</p>
+                        </div>
+                        <div className="bg-purple-50 p-3 rounded-xl text-center">
+                          <p className="text-[9px] text-purple-600 font-bold uppercase">Best Score</p>
+                          <p className="text-xl font-black text-purple-700">{leaderboard.bestScore}</p>
+                        </div>
                       </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-gray-50 p-2 rounded-xl text-center">
+                          <p className="text-[8px] text-gray-500 font-bold uppercase">Today</p>
+                          <p className="text-sm font-black text-gray-700">{leaderboard.sessionsToday}</p>
+                        </div>
+                        <div className="bg-gray-50 p-2 rounded-xl text-center">
+                          <p className="text-[8px] text-gray-500 font-bold uppercase">This Week</p>
+                          <p className="text-sm font-black text-gray-700">{leaderboard.sessionsThisWeek}</p>
+                        </div>
+                        <div className="bg-gray-50 p-2 rounded-xl text-center">
+                          <p className="text-[8px] text-gray-500 font-bold uppercase">This Month</p>
+                          <p className="text-sm font-black text-gray-700">{leaderboard.sessionsThisMonth}</p>
+                        </div>
+                      </div>
+                      {leaderboard.hardWordCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => { setShowProgress(false); setShowHardList(true); }}
+                          className="w-full py-3 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
+                        >
+                          🔥 {leaderboard.hardWordCount} hard words across all decks — tap to review
+                        </button>
+                      )}
+                      {leaderboard.recentSessions.length > 0 && (
+                        <div>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">Recent Sessions</p>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                            {leaderboard.recentSessions.slice(0, 10).map((s: any, i: number) => (
+                              <div key={i} className="flex justify-between items-center py-1.5 px-3 bg-gray-50 rounded-lg">
+                                <span className="text-xs text-gray-600">{new Date(s.createdAt).toLocaleDateString()}</span>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[10px] text-gray-400">{s.deckKey}</span>
+                                  <span className="text-xs font-bold text-emerald-600">{s.score} pts</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {progressTab === 'decks' && (
+                    <div className="space-y-2">
+                      {deckStats === null ? (
+                        <div className="text-center py-8 text-gray-400">
+                          <i className="fa-solid fa-spinner animate-spin text-2xl mb-2 block"></i>
+                          <p className="text-xs">Loading deck stats...</p>
+                        </div>
+                      ) : deckStats.length === 0 ? (
+                        <div className="text-center py-8 text-gray-400">
+                          <p className="text-xs">No deck stats yet. Play some decks first!</p>
+                        </div>
+                      ) : (
+                        deckStats.map((ds: any) => (
+                          <div key={ds.deckKey} className="bg-gray-50 rounded-xl p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-bold text-gray-800">{ds.label}</span>
+                              <div className="flex items-center gap-2">
+                                {ds.trend > 0 && <span className="text-[9px] font-bold text-emerald-500">↑ improving</span>}
+                                {ds.trend < 0 && <span className="text-[9px] font-bold text-rose-500">↓ slipping</span>}
+                                {ds.trend === 0 && ds.sessionsPlayed > 0 && <span className="text-[9px] font-bold text-gray-400">— steady</span>}
+                                <span className="text-[10px] text-gray-400">{ds.sessionsPlayed} sessions</span>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-4 gap-1.5">
+                              <div className="bg-white rounded-lg p-1.5 text-center">
+                                <p className="text-[7px] text-gray-400 uppercase font-bold">High</p>
+                                <p className="text-xs font-black text-purple-700">{ds.highScore}</p>
+                              </div>
+                              <div className="bg-white rounded-lg p-1.5 text-center">
+                                <p className="text-[7px] text-gray-400 uppercase font-bold">Avg</p>
+                                <p className="text-xs font-black text-gray-700">{ds.avgScore}</p>
+                              </div>
+                              <div className="bg-white rounded-lg p-1.5 text-center">
+                                <p className="text-[7px] text-gray-400 uppercase font-bold">Mastery</p>
+                                <p className="text-xs font-black text-emerald-600">{ds.masteryRate}%</p>
+                              </div>
+                              <div className="bg-white rounded-lg p-1.5 text-center">
+                                <p className="text-[7px] text-gray-400 uppercase font-bold">Seen</p>
+                                <p className="text-xs font-black text-blue-600">{ds.completionPct}%</p>
+                              </div>
+                            </div>
+                            {ds.recentScores && ds.recentScores.length >= 2 && (
+                              <div className="mt-2 flex items-center gap-1">
+                                <span className="text-[7px] text-gray-400 uppercase mr-1">Recent</span>
+                                {ds.recentScores.slice(0, 5).reverse().map((s: number, i: number) => (
+                                  <div
+                                    key={i}
+                                    className="flex-1 h-3 rounded-sm"
+                                    style={{ backgroundColor: s >= ds.avgScore ? '#10b981' : s >= ds.avgScore * 0.7 ? '#f59e0b' : '#ef4444', opacity: 0.3 + (0.7 * (s / Math.max(ds.highScore || 1, 1))) }}
+                                    title={`${s} pts`}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
                     </div>
                   )}
                 </>
