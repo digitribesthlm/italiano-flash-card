@@ -93,6 +93,8 @@ const App: React.FC = () => {
   } | null>(null);
   const [deckStats, setDeckStats] = useState<any[] | null>(null);
   const [progressTab, setProgressTab] = useState<'overview' | 'decks'>('overview');
+  const [deckHighScore, setDeckHighScore] = useState<number | null>(null);
+  const [deckStatsLoading, setDeckStatsLoading] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
   const [sessionSaved, setSessionSaved] = useState(false);
 
@@ -249,6 +251,24 @@ const App: React.FC = () => {
       completeDailyList(currentUser).catch(() => {});
     }
   }, [isSessionComplete, isAuthenticated, currentUser, sessionSaved]);
+
+  // Fetch per-deck high score when session completes
+  useEffect(() => {
+    if (!isSessionComplete || !isAuthenticated || !currentUser) return;
+    setDeckStatsLoading(true);
+    fetchDeckStats(currentUser)
+      .then((d: any) => {
+        const decks: any[] = d.decks || [];
+        setDeckStats(decks);
+        const currentDeck = decks.find((ds: any) => ds.deckKey === activeDeckKey);
+        setDeckHighScore(currentDeck ? currentDeck.highScore : 0);
+        setDeckStatsLoading(false);
+      })
+      .catch(() => {
+        setDeckHighScore(null);
+        setDeckStatsLoading(false);
+      });
+  }, [isSessionComplete, isAuthenticated, currentUser]);
 
   // Fetch leaderboard data when progress modal opens (snapshot current state for fallback)
   const cardStreaksRef = useRef(cardStreaks);
@@ -605,29 +625,72 @@ const App: React.FC = () => {
   const masteryPercentage = Math.round((masteredIds.size / (totalWordCount || 1)) * 100);
 
   if (isSessionComplete) {
+    const currentDeckStat = deckStats?.find((ds: any) => ds.deckKey === activeDeckKey) || null;
+    const isNewHighScore = deckHighScore !== null && score >= (deckHighScore || 0) && score > 0;
+    const deckMasteryRate = currentDeckStat?.masteryRate ?? null;
+    const deckCompletionPct = currentDeckStat?.completionPct ?? null;
+    const deckSessionsPlayed = currentDeckStat?.sessionsPlayed ?? null;
+
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-10 flex flex-col items-center animate-slide">
           <div className="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center text-4xl mb-6 shadow-inner">
-            🏆
+            {isNewHighScore ? '🎉' : '🏆'}
           </div>
           <h2 className="text-3xl font-black text-gray-900 mb-2">Session Complete!</h2>
-          <p className="text-gray-500 mb-8">Ottimo lavoro! Review your results.</p>
-          
-          <div className="grid grid-cols-2 gap-4 w-full mb-8">
+          <p className="text-gray-500 mb-6">
+            {activeDeckKey === 'DAILY_LIST' ? 'Daily Review' : (deckList.find(d => d.key === activeDeckKey)?.label || activeDeckKey)}
+          </p>
+
+          <div className="grid grid-cols-2 gap-3 w-full mb-4">
             <div className="bg-emerald-50 p-4 rounded-2xl">
-              <p className="text-[10px] text-emerald-600 font-bold uppercase mb-1">Score</p>
+              <p className="text-[9px] text-emerald-600 font-bold uppercase mb-1">This Score</p>
               <p className="text-2xl font-black text-emerald-700">{score}</p>
             </div>
+            <div className={`p-4 rounded-2xl ${isNewHighScore ? 'bg-yellow-50' : 'bg-purple-50'}`}>
+              <p className={`text-[9px] font-bold uppercase mb-1 ${isNewHighScore ? 'text-yellow-700' : 'text-purple-600'}`}>
+                {isNewHighScore ? 'NEW HIGH!' : 'Deck High'}
+              </p>
+              <p className={`text-2xl font-black ${isNewHighScore ? 'text-yellow-700' : 'text-purple-700'}`}>
+                {deckStatsLoading ? '...' : (deckHighScore ?? score)}
+              </p>
+            </div>
             <div className="bg-orange-50 p-4 rounded-2xl">
-              <p className="text-[10px] text-orange-600 font-bold uppercase mb-1">Missed</p>
+              <p className="text-[9px] text-orange-600 font-bold uppercase mb-1">Missed</p>
               <p className="text-2xl font-black text-orange-700">{learningIds.size}</p>
             </div>
-            <div className="bg-blue-50 p-4 rounded-2xl col-span-2">
-              <p className="text-[10px] text-blue-600 font-bold uppercase mb-1">Overall Progress</p>
-              <p className="text-2xl font-black text-blue-700">{masteryPercentage}%</p>
+            <div className="bg-blue-50 p-4 rounded-2xl">
+              <p className="text-[9px] text-blue-600 font-bold uppercase mb-1">Deck Mastery</p>
+              <p className="text-2xl font-black text-blue-700">
+                {deckStatsLoading ? '...' : deckMasteryRate !== null ? `${deckMasteryRate}%` : '--'}
+              </p>
             </div>
           </div>
+
+          {currentDeckStat && currentDeckStat.recentScores && currentDeckStat.recentScores.length >= 2 && (
+            <div className="w-full mb-4 bg-gray-50 rounded-xl p-3">
+              <p className="text-[8px] text-gray-400 font-bold uppercase mb-1.5">Recent Scores (this deck)</p>
+              <div className="flex items-end gap-1 h-12">
+                {currentDeckStat.recentScores.slice(0, 8).reverse().map((s: number, i: number) => {
+                  const maxH = Math.max(...currentDeckStat.recentScores, 1);
+                  const h = Math.max(4, Math.round((s / maxH) * 100));
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center justify-end h-full">
+                      <span className="text-[7px] font-bold text-gray-500 mb-0.5">{s}</span>
+                      <div
+                        className="w-full rounded-t-sm"
+                        style={{
+                          height: `${h}%`,
+                          backgroundColor: s >= (currentDeckStat.avgScore || 1) ? '#10b981' :
+                            s >= (currentDeckStat.avgScore || 1) * 0.7 ? '#f59e0b' : '#ef4444',
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-3 w-full">
             <button
