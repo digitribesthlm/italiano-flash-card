@@ -577,14 +577,29 @@ app.get('/api/deck-stats', async (req, res) => {
       }},
     ]).toArray();
 
-    // Get last 10 session scores per deck for trend
+    // Get last 10 session scores + wordsLearning per deck for trend & comparison
     const recentScoresByDeck = {};
+    const recentLearningByDeck = {};
+    const prevSessionByDeck = {};
     const allUserSessions = await sessions.find({ userId }).sort({ createdAt: -1 }).toArray();
     for (const s of allUserSessions) {
       const dk = s.deckKey || '__unknown__';
-      if (!recentScoresByDeck[dk]) recentScoresByDeck[dk] = [];
+      if (!recentScoresByDeck[dk]) {
+        recentScoresByDeck[dk] = [];
+        recentLearningByDeck[dk] = [];
+      }
       if (recentScoresByDeck[dk].length < 10) {
         recentScoresByDeck[dk].push(s.score || 0);
+        recentLearningByDeck[dk].push(s.wordsLearning || 0);
+      }
+      // Capture the previous session (second most recent, since first is current)
+      if (!prevSessionByDeck[dk] && recentScoresByDeck[dk].length === 2) {
+        prevSessionByDeck[dk] = {
+          score: s.score || 0,
+          wordsLearning: s.wordsLearning || 0,
+          wordsMastered: s.wordsMastered || 0,
+          wordsAttempted: s.wordsAttempted || 0,
+        };
       }
     }
 
@@ -601,6 +616,8 @@ app.get('/api/deck-stats', async (req, res) => {
       const sess = sessionByDeck[dk] || {};
       const att = attemptByDeck[dk] || {};
       const recentScores = recentScoresByDeck[dk] || [];
+      const recentLearning = recentLearningByDeck[dk] || [];
+      const prevSession = prevSessionByDeck[dk] || null;
 
       const sessionsPlayed = sess.sessionsPlayed || 0;
       const totalAttempts = att.totalAttempts || 0;
@@ -611,6 +628,9 @@ app.get('/api/deck-stats', async (req, res) => {
       const avgScore = sess.avgScore ? Math.round(sess.avgScore) : 0;
       const recentAvgScore = recentScores.length > 0
         ? Math.round(recentScores.reduce((a, b) => a + b, 0) / recentScores.length)
+        : 0;
+      const avgWordsLearning = recentLearning.length > 0
+        ? Math.round(recentLearning.reduce((a, b) => a + b, 0) / recentLearning.length)
         : 0;
       // Trend: positive = improving, negative = declining
       const trend = recentScores.length >= 3
@@ -633,6 +653,8 @@ app.get('/api/deck-stats', async (req, res) => {
         recentScores,
         recentAvgScore,
         trend,
+        avgWordsLearning,
+        prevSession,
       };
     });
 

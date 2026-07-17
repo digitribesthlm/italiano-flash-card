@@ -234,10 +234,11 @@ const App: React.FC = () => {
     }
   }, [isSessionComplete]);
 
-  // Save session to MongoDB when completed
+  // Save session to MongoDB, then fetch updated deck stats for comparison
   useEffect(() => {
     if (!isSessionComplete || !isAuthenticated || !currentUser || sessionSaved) return;
     const duration = Math.round((Date.now() - sessionStartTime) / 1000);
+    setDeckStatsLoading(true);
     postSession(currentUser, {
       deckKey: activeDeckKey,
       score,
@@ -245,30 +246,25 @@ const App: React.FC = () => {
       wordsMastered: masteredIds.size,
       wordsLearning: learningIds.size,
       duration,
-    }).then(() => setSessionSaved(true)).catch(() => {});
+    }).then(() => {
+      setSessionSaved(true);
+      // Fetch deck stats AFTER session is saved so it's included in comparisons
+      return fetchDeckStats(currentUser);
+    }).then((d: any) => {
+      const decks: any[] = d.decks || [];
+      setDeckStats(decks);
+      const currentDeck = decks.find((ds: any) => ds.deckKey === activeDeckKey);
+      setDeckHighScore(currentDeck ? currentDeck.highScore : 0);
+      setDeckStatsLoading(false);
+    }).catch(() => {
+      setDeckHighScore(null);
+      setDeckStatsLoading(false);
+    });
     // Mark daily list as completed if applicable
     if (activeDeckKey === 'DAILY_LIST') {
       completeDailyList(currentUser).catch(() => {});
     }
   }, [isSessionComplete, isAuthenticated, currentUser, sessionSaved]);
-
-  // Fetch per-deck high score when session completes
-  useEffect(() => {
-    if (!isSessionComplete || !isAuthenticated || !currentUser) return;
-    setDeckStatsLoading(true);
-    fetchDeckStats(currentUser)
-      .then((d: any) => {
-        const decks: any[] = d.decks || [];
-        setDeckStats(decks);
-        const currentDeck = decks.find((ds: any) => ds.deckKey === activeDeckKey);
-        setDeckHighScore(currentDeck ? currentDeck.highScore : 0);
-        setDeckStatsLoading(false);
-      })
-      .catch(() => {
-        setDeckHighScore(null);
-        setDeckStatsLoading(false);
-      });
-  }, [isSessionComplete, isAuthenticated, currentUser]);
 
   // Fetch leaderboard data when progress modal opens (snapshot current state for fallback)
   const cardStreaksRef = useRef(cardStreaks);
@@ -630,6 +626,9 @@ const App: React.FC = () => {
     const deckMasteryRate = currentDeckStat?.masteryRate ?? null;
     const deckCompletionPct = currentDeckStat?.completionPct ?? null;
     const deckSessionsPlayed = currentDeckStat?.sessionsPlayed ?? null;
+    const deckAvgScore = currentDeckStat?.avgScore ?? null;
+    const deckAvgMissed = currentDeckStat?.avgWordsLearning ?? null;
+    const deckPrevSession = currentDeckStat?.prevSession ?? null;
 
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
@@ -646,6 +645,11 @@ const App: React.FC = () => {
             <div className="bg-emerald-50 p-4 rounded-2xl">
               <p className="text-[9px] text-emerald-600 font-bold uppercase mb-1">This Score</p>
               <p className="text-2xl font-black text-emerald-700">{score}</p>
+              {!deckStatsLoading && deckAvgScore !== null && deckAvgScore > 0 && (
+                <p className="text-[9px] text-emerald-500 mt-1 font-medium">
+                  Avg {deckAvgScore} &middot; {score >= deckAvgScore ? '▲' : '▼'} {Math.abs(score - deckAvgScore)}
+                </p>
+              )}
             </div>
             <div className={`p-4 rounded-2xl ${isNewHighScore ? 'bg-yellow-50' : 'bg-purple-50'}`}>
               <p className={`text-[9px] font-bold uppercase mb-1 ${isNewHighScore ? 'text-yellow-700' : 'text-purple-600'}`}>
@@ -654,18 +658,51 @@ const App: React.FC = () => {
               <p className={`text-2xl font-black ${isNewHighScore ? 'text-yellow-700' : 'text-purple-700'}`}>
                 {deckStatsLoading ? '...' : (deckHighScore ?? score)}
               </p>
+              {!deckStatsLoading && deckSessionsPlayed !== null && deckSessionsPlayed > 1 && (
+                <p className={`text-[9px] mt-1 font-medium ${isNewHighScore ? 'text-yellow-600' : 'text-purple-500'}`}>
+                  {deckSessionsPlayed} session{deckSessionsPlayed !== 1 ? 's' : ''}
+                </p>
+              )}
             </div>
             <div className="bg-orange-50 p-4 rounded-2xl">
               <p className="text-[9px] text-orange-600 font-bold uppercase mb-1">Missed</p>
               <p className="text-2xl font-black text-orange-700">{learningIds.size}</p>
+              {!deckStatsLoading && deckAvgMissed !== null && deckAvgMissed > 0 && (
+                <p className="text-[9px] text-orange-500 mt-1 font-medium">
+                  Avg {deckAvgMissed} &middot; {learningIds.size <= deckAvgMissed ? '▲' : '▼'} {Math.abs(learningIds.size - deckAvgMissed)}
+                </p>
+              )}
             </div>
             <div className="bg-blue-50 p-4 rounded-2xl">
               <p className="text-[9px] text-blue-600 font-bold uppercase mb-1">Deck Mastery</p>
               <p className="text-2xl font-black text-blue-700">
                 {deckStatsLoading ? '...' : deckMasteryRate !== null ? `${deckMasteryRate}%` : '--'}
               </p>
+              {!deckStatsLoading && deckCompletionPct !== null && (
+                <p className="text-[9px] text-blue-500 mt-1 font-medium">{deckCompletionPct}% seen</p>
+              )}
             </div>
           </div>
+
+          {!deckStatsLoading && deckPrevSession && deckPrevSession.score > 0 && (
+            <div className="w-full mb-4 bg-gray-50 rounded-xl p-3">
+              <p className="text-[8px] text-gray-400 font-bold uppercase mb-1.5">Previous Session</p>
+              <div className="flex justify-around text-center">
+                <div>
+                  <p className="text-xs font-bold text-gray-700">{deckPrevSession.score}</p>
+                  <p className="text-[8px] text-gray-400">Score</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-700">{deckPrevSession.wordsMastered}</p>
+                  <p className="text-[8px] text-gray-400">Mastered</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-700">{deckPrevSession.wordsLearning}</p>
+                  <p className="text-[8px] text-gray-400">Missed</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {currentDeckStat && currentDeckStat.recentScores && currentDeckStat.recentScores.length >= 2 && (
             <div className="w-full mb-4 bg-gray-50 rounded-xl p-3">
