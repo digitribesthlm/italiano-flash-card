@@ -236,47 +236,104 @@ export default async function handler(req, res) {
       const wordEase = progress?.wordEase || {};
       const wordNextReview = progress?.wordNextReview || {};
       const wordStreaks = progress?.wordStreaks || {};
+      const failCounts = progress?.failCounts || {};
       const learningIds = new Set(progress?.learningIds || []);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0];
 
-      const scored = allWords.map((w) => {
+      // Seeded PRNG for deterministic new-word rotation per user per day
+      const dateSeed = parseInt(todayStr.replace(/-/g, ''), 10);
+      const userSeed = userId.split('').reduce((h, c) => h + c.charCodeAt(0), 0);
+      let newWordSeed = dateSeed + userSeed;
+
+      // Partition words into four buckets
+      const learningWords = [];
+      const dueReviewWords = [];
+      const scheduledWords = [];
+      const newWordsRaw = [];
+
+      for (const w of allWords) {
         const nextReviewRaw = wordNextReview[w.id];
         const ease = wordEase[w.id] || 2.5;
         const streak = wordStreaks[w.id] || 0;
-        let priority = 0;
-        let category = 'new';
+        const failCount = failCounts[w.id] || 0;
 
-        if (nextReviewRaw) {
+        if (learningIds.has(w.id)) {
+          // Force-include: score for ordering within learning bucket
+          let priority = 10;
+          if (nextReviewRaw) {
+            const nextReview = new Date(nextReviewRaw);
+            const daysOverdue = Math.floor((today - nextReview) / (1000 * 60 * 60 * 24));
+            const daysFactor = Math.max(daysOverdue + 1, 1);
+            const easeFactor = Math.pow(8, 3.0 - ease);
+            const failFactor = Math.pow(2, Math.min(failCount, 5));
+            const streakFactor = streak < 0 ? (1 + Math.abs(streak) * 0.5) : 1;
+            priority = daysFactor * easeFactor * 5 * failFactor * streakFactor;
+          }
+          learningWords.push({ ...w, priority, category: 'learning', ease, streak, nextReview: nextReviewRaw || null });
+        } else if (nextReviewRaw) {
           const nextReview = new Date(nextReviewRaw);
           const daysOverdue = Math.floor((today - nextReview) / (1000 * 60 * 60 * 24));
           if (daysOverdue >= 0) {
-            category = 'review';
-            priority = (daysOverdue + 1) * (3.0 - ease) * 10;
-            if (streak < 0) priority += Math.abs(streak) * 5;
+            const daysFactor = daysOverdue + 1;
+            const easeFactor = Math.pow(8, 3.0 - ease);
+            const failFactor = Math.pow(2, Math.min(failCount, 5));
+            const streakFactor = streak < 0 ? (1 + Math.abs(streak) * 0.5) : 1;
+            const priority = daysFactor * easeFactor * 5 * failFactor * streakFactor;
+            dueReviewWords.push({ ...w, priority, category: 'review', ease, streak, nextReview: nextReviewRaw });
           } else {
-            category = 'scheduled';
-            priority = daysOverdue;
+            scheduledWords.push({ ...w, priority: daysOverdue, category: 'scheduled', ease, streak, nextReview: nextReviewRaw });
           }
         } else {
-          category = 'new';
-          priority = 0;
+          newWordsRaw.push({ ...w, priority: 0, category: 'new', ease, streak, nextReview: null });
+        }
+      }
+
+      // Sort buckets
+      learningWords.sort((a, b) => b.priority - a.priority || a.ease - b.ease);
+      dueReviewWords.sort((a, b) => b.priority - a.priority || a.ease - b.ease);
+      scheduledWords.sort((a, b) => b.priority - a.priority || a.ease - b.ease);
+
+      // Seeded shuffle for new words (same order all day for the same user)
+      const newWords = (() => {
+        const a = [...newWordsRaw];
+        for (let i = a.length - 1; i > 0; i--) {
+          newWordSeed = (newWordSeed * 16807 + 0) % 2147483647;
+          const j = newWordSeed % (i + 1);
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      })();
+
+      // Force-include ALL learning words
+      const selected = [...learningWords];
+
+      // Dynamic list size: cover all due words, min 30, max 60
+      const MIN_LIST_SIZE = 30;
+      const MAX_LIST_SIZE = 60;
+      const totalDueToday = dueReviewWords.length + learningWords.length;
+      const effectiveCount = Math.min(
+        Math.max(count, totalDueToday + 5, MIN_LIST_SIZE),
+        MAX_LIST_SIZE
+      );
+
+      const slotsLeft = effectiveCount - selected.length;
+
+      if (slotsLeft > 0) {
+        const desiredReview = Math.round(slotsLeft * 0.75);
+        let reviewSlots = Math.min(dueReviewWords.length, desiredReview);
+        let newSlots = Math.min(newWords.length, slotsLeft - reviewSlots);
+
+        if (newSlots < slotsLeft - reviewSlots) {
+          reviewSlots = Math.min(dueReviewWords.length, slotsLeft - newSlots);
         }
 
-        if (learningIds.has(w.id)) priority += 20;
+        for (let i = 0; i < reviewSlots; i++) selected.push(dueReviewWords[i]);
+        for (let i = 0; i < newSlots; i++) selected.push(newWords[i]);
+      }
 
-        return { ...w, priority, category, ease, streak, nextReview: nextReviewRaw || null };
-      });
-
-      scored.sort((a, b) => {
-        if (b.priority !== a.priority) return b.priority - a.priority;
-        return a.ease - b.ease;
-      });
-
-      const selected = scored.slice(0, count);
-
-      const todayStr = today.toISOString().split('T')[0];
       const existingList = await db.collection('flash_daily_lists').findOne({ userId, date: todayStr });
 
       await db.collection('flash_daily_lists').updateOne(
@@ -301,7 +358,7 @@ export default async function handler(req, res) {
         total: selected.length,
         newCount,
         reviewCount,
-        learningCount: selected.filter((w) => learningIds.has(w.id)).length,
+        learningCount: selected.filter((w) => w.category === 'learning').length,
         completed: existingList?.completed || false,
       });
     }
