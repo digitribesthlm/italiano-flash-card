@@ -367,9 +367,11 @@ const App: React.FC = () => {
         setSessionStreak(0);
         setSessionSaved(false);
         setSessionStartTime(Date.now());
+      } else {
+        console.warn('Daily list returned empty — no words available');
       }
-    } catch (_) {
-      // fall back to empty — server might not be running
+    } catch (err) {
+      console.error('Failed to load daily list:', err);
     } finally {
       setIsLoadingDailyList(false);
     }
