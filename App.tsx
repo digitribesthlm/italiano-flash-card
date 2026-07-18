@@ -622,7 +622,8 @@ const App: React.FC = () => {
 
   if (isSessionComplete) {
     const currentDeckStat = deckStats?.find((ds: any) => ds.deckKey === activeDeckKey) || null;
-    const isNewHighScore = deckHighScore !== null && score >= (deckHighScore || 0) && score > 0;
+    const deckPrevHigh = currentDeckStat?.prevHigh ?? null;
+    const isNewHighScore = deckPrevHigh !== null && score > deckPrevHigh && score > 0;
     const deckMasteryRate = currentDeckStat?.masteryRate ?? null;
     const deckCompletionPct = currentDeckStat?.completionPct ?? null;
     const deckSessionsPlayed = currentDeckStat?.sessionsPlayed ?? null;
@@ -656,7 +657,7 @@ const App: React.FC = () => {
                 {isNewHighScore ? 'NEW HIGH!' : 'Deck High'}
               </p>
               <p className={`text-2xl font-black ${isNewHighScore ? 'text-yellow-700' : 'text-purple-700'}`}>
-                {deckStatsLoading ? '...' : (deckHighScore ?? score)}
+                {deckStatsLoading ? '...' : (deckPrevHigh ?? deckHighScore ?? score)}
               </p>
               {!deckStatsLoading && deckSessionsPlayed !== null && deckSessionsPlayed > 1 && (
                 <p className={`text-[9px] mt-1 font-medium ${isNewHighScore ? 'text-yellow-600' : 'text-purple-500'}`}>

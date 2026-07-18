@@ -461,6 +461,136 @@ export default async function handler(req, res) {
       });
     }
 
+    // GET /api/deck-stats
+    if (req.method === 'GET' && path === '/deck-stats') {
+      const userId = url.searchParams.get('userId');
+      if (!userId) return json(res, { error: 'userId required' }, 400);
+
+      const db = await getDb();
+      const sessions = db.collection('flash_sessions');
+      const attempts = db.collection('flash_attempts');
+      const decksCol = db.collection('flash_decks');
+
+      const allDecks = await decksCol.find({}).toArray();
+      const deckMeta = {};
+      for (const d of allDecks) {
+        deckMeta[d.deckKey] = {
+          label: d.label || d.deckKey,
+          wordCount: (d.words || []).length,
+        };
+      }
+
+      const attemptAgg = await attempts.aggregate([
+        { $match: { userId } },
+        { $group: {
+          _id: '$deckKey',
+          totalAttempts: { $sum: 1 },
+          masteredAttempts: { $sum: { $cond: [{ $eq: ['$outcome', 'mastered'] }, 1, 0] } },
+          distinctWords: { $addToSet: '$wordId' },
+          lastAttempt: { $max: '$createdAt' },
+        }},
+      ]).toArray();
+
+      const sessionAgg = await sessions.aggregate([
+        { $match: { userId } },
+        { $group: {
+          _id: '$deckKey',
+          sessionsPlayed: { $sum: 1 },
+          highScore: { $max: '$score' },
+          avgScore: { $avg: '$score' },
+          lastPlayed: { $max: '$createdAt' },
+        }},
+      ]).toArray();
+
+      const recentScoresByDeck = {};
+      const recentLearningByDeck = {};
+      const prevSessionByDeck = {};
+      const allUserSessions = await sessions.find({ userId }).sort({ createdAt: -1 }).toArray();
+      for (const s of allUserSessions) {
+        const dk = s.deckKey || '__unknown__';
+        if (!recentScoresByDeck[dk]) {
+          recentScoresByDeck[dk] = [];
+          recentLearningByDeck[dk] = [];
+        }
+        if (recentScoresByDeck[dk].length < 10) {
+          recentScoresByDeck[dk].push(s.score || 0);
+          recentLearningByDeck[dk].push(s.wordsLearning || 0);
+        }
+        if (!prevSessionByDeck[dk] && recentScoresByDeck[dk].length === 2) {
+          prevSessionByDeck[dk] = {
+            score: s.score || 0,
+            wordsLearning: s.wordsLearning || 0,
+            wordsMastered: s.wordsMastered || 0,
+            wordsAttempted: s.wordsAttempted || 0,
+          };
+        }
+      }
+
+      // Build per-deck previous-high (max score excluding most recent session)
+      const prevHighByDeck = {};
+      const sessionsByDeck = {};
+      for (const s of allUserSessions) {
+        const dk = s.deckKey || '__unknown__';
+        if (!sessionsByDeck[dk]) sessionsByDeck[dk] = [];
+        sessionsByDeck[dk].push(s.score || 0);
+      }
+      for (const [dk, scores] of Object.entries(sessionsByDeck)) {
+        prevHighByDeck[dk] = scores.length > 1 ? Math.max(...scores.slice(1)) : 0;
+      }
+
+      const sessionByDeck = {};
+      for (const s of sessionAgg) sessionByDeck[s._id || '__unknown__'] = s;
+
+      const attemptByDeck = {};
+      for (const a of attemptAgg) attemptByDeck[a._id || '__unknown__'] = a;
+
+      const decks = allDecks.map((d) => {
+        const dk = d.deckKey;
+        const meta = deckMeta[dk] || { label: dk, wordCount: 0 };
+        const sess = sessionByDeck[dk] || {};
+        const att = attemptByDeck[dk] || {};
+        const recentScores = recentScoresByDeck[dk] || [];
+        const recentLearning = recentLearningByDeck[dk] || [];
+        const prevSession = prevSessionByDeck[dk] || null;
+
+        const sessionsPlayed = sess.sessionsPlayed || 0;
+        const totalAttempts = att.totalAttempts || 0;
+        const masteredAttempts = att.masteredAttempts || 0;
+        const masteryRate = totalAttempts > 0 ? Math.round((masteredAttempts / totalAttempts) * 100) : 0;
+        const wordsSeen = att.distinctWords ? att.distinctWords.length : 0;
+        const highScore = sess.highScore || 0;
+        const avgScore = sess.avgScore ? Math.round(sess.avgScore) : 0;
+        const recentAvgScore = recentScores.length > 0
+          ? Math.round(recentScores.reduce((a, b) => a + b, 0) / recentScores.length)
+          : 0;
+        const avgWordsLearning = recentLearning.length > 0
+          ? Math.round(recentLearning.reduce((a, b) => a + b, 0) / recentLearning.length)
+          : 0;
+        const trend = recentScores.length >= 3
+          ? Math.round(recentScores.slice(0, Math.floor(recentScores.length / 2)).reduce((a, b) => a + b, 0) / Math.floor(recentScores.length / 2))
+            - Math.round(recentScores.slice(-Math.floor(recentScores.length / 2)).reduce((a, b) => a + b, 0) / Math.floor(recentScores.length / 2))
+          : 0;
+
+        return {
+          deckKey: dk, label: meta.label, wordCount: meta.wordCount,
+          highScore, prevHigh: prevHighByDeck[dk] || 0, avgScore, sessionsPlayed, totalAttempts, masteryRate,
+          wordsSeen,
+          completionPct: meta.wordCount > 0 ? Math.round((wordsSeen / meta.wordCount) * 100) : 0,
+          lastPlayed: sess.lastPlayed || att.lastAttempt || null,
+          recentScores, recentAvgScore, trend, avgWordsLearning, prevSession,
+        };
+      });
+
+      decks.sort((a, b) => {
+        if (!a.lastPlayed && !b.lastPlayed) return 0;
+        if (!a.lastPlayed) return 1;
+        if (!b.lastPlayed) return -1;
+        return new Date(b.lastPlayed) - new Date(a.lastPlayed);
+      });
+
+      return json(res, { decks });
+    }
+
     return json(res, { error: 'Not found' }, 404);
   } catch (err) {
     console.error(`API ${req.method} ${path}`, err);

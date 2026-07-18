@@ -652,6 +652,18 @@ app.get('/api/deck-stats', async (req, res) => {
       }
     }
 
+    // Build per-deck previous-high (max score excluding most recent session)
+    const prevHighByDeck = {};
+    const sessionsByDeck = {};
+    for (const s of allUserSessions) {
+      const dk = s.deckKey || '__unknown__';
+      if (!sessionsByDeck[dk]) sessionsByDeck[dk] = [];
+      sessionsByDeck[dk].push(s.score || 0);
+    }
+    for (const [dk, scores] of Object.entries(sessionsByDeck)) {
+      prevHighByDeck[dk] = scores.length > 1 ? Math.max(...scores.slice(1)) : 0;
+    }
+
     // Build per-deck stats
     const sessionByDeck = {};
     for (const s of sessionAgg) sessionByDeck[s._id || '__unknown__'] = s;
@@ -692,6 +704,7 @@ app.get('/api/deck-stats', async (req, res) => {
         label: meta.label,
         wordCount: meta.wordCount,
         highScore,
+        prevHigh: prevHighByDeck[dk] || 0,
         avgScore,
         sessionsPlayed,
         totalAttempts,
