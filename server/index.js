@@ -720,6 +720,56 @@ app.get('/api/deck-stats', async (req, res) => {
       };
     });
 
+    // Add entries for virtual decks (DAILY_LIST, HARD_ALL, EASY_ALL) that have session data
+    const builtDeckKeys = new Set(decks.map(d => d.deckKey));
+    for (const dk of Object.keys(sessionByDeck)) {
+      if (!builtDeckKeys.has(dk)) {
+        const sess = sessionByDeck[dk] || {};
+        const att = attemptByDeck[dk] || {};
+        const recentScoresList = recentScoresByDeck[dk] || [];
+        const recentLearningList = recentLearningByDeck[dk] || [];
+        const prevSessionData = prevSessionByDeck[dk] || null;
+
+        const sessionsPlayed = sess.sessionsPlayed || 0;
+        const totalAttempts = att.totalAttempts || 0;
+        const masteredAttempts = att.masteredAttempts || 0;
+        const masteryRate = totalAttempts > 0 ? Math.round((masteredAttempts / totalAttempts) * 100) : 0;
+        const wordsSeen = att.distinctWords ? att.distinctWords.length : 0;
+        const highScore = sess.highScore || 0;
+        const avgScore = sess.avgScore ? Math.round(sess.avgScore) : 0;
+        const recentAvgScore = recentScoresList.length > 0
+          ? Math.round(recentScoresList.reduce((a, b) => a + b, 0) / recentScoresList.length)
+          : 0;
+        const avgWordsLearning = recentLearningList.length > 0
+          ? Math.round(recentLearningList.reduce((a, b) => a + b, 0) / recentLearningList.length)
+          : 0;
+        const trend = recentScoresList.length >= 3
+          ? Math.round(recentScoresList.slice(0, Math.floor(recentScoresList.length / 2)).reduce((a, b) => a + b, 0) / Math.floor(recentScoresList.length / 2))
+            - Math.round(recentScoresList.slice(-Math.floor(recentScoresList.length / 2)).reduce((a, b) => a + b, 0) / Math.floor(recentScoresList.length / 2))
+          : 0;
+
+        decks.push({
+          deckKey: dk,
+          label: dk === 'DAILY_LIST' ? 'Daily Review' : dk === 'HARD_ALL' ? 'Hard Words' : dk === 'EASY_ALL' ? 'Easy Words' : dk,
+          wordCount: 0,
+          highScore,
+          prevHigh: prevHighByDeck[dk] || 0,
+          avgScore,
+          sessionsPlayed,
+          totalAttempts,
+          masteryRate,
+          wordsSeen,
+          completionPct: 0,
+          lastPlayed: sess.lastPlayed || att.lastAttempt || null,
+          recentScores: recentScoresList,
+          recentAvgScore,
+          trend,
+          avgWordsLearning,
+          prevSession: prevSessionData,
+        });
+      }
+    }
+
     // Sort: active decks first (by lastPlayed desc), then unplayed
     decks.sort((a, b) => {
       if (!a.lastPlayed && !b.lastPlayed) return 0;
