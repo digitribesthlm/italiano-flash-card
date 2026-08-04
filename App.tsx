@@ -2,7 +2,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { Word, LanguageMode } from './types';
-import { DECKS } from './data/words';
 import Flashcard from './components/Flashcard';
 import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard, fetchDailyList, completeDailyList, fetchDecks, fetchDeckStats } from './api';
 
@@ -62,10 +61,8 @@ function getHardWordIds(cardStreaks: Record<string, number>, learningIds: Set<st
 
 const App: React.FC = () => {
   const [activeDeckKey, setActiveDeckKey] = useState<string>('CLASSIC');
-  const [decks, setDecks] = useState<Record<string, Word[]>>(DECKS);
-  const [deckList, setDeckList] = useState<{key: string; label: string}[]>(
-    Object.keys(DECKS).map(k => ({ key: k, label: k }))
-  );
+  const [decks, setDecks] = useState<Record<string, Word[]>>({});
+  const [deckList, setDeckList] = useState<{key: string; label: string}[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [mode, setMode] = useState<LanguageMode>(LanguageMode.EN_TO_IT);
@@ -145,7 +142,7 @@ const App: React.FC = () => {
       setDecks(map);
       setDeckList(list);
     }).catch(() => {
-      // keep static DECKS fallback
+      // API unavailable — stay with empty decks, user will need to wait for the API
     });
   }, []);
 
@@ -328,10 +325,10 @@ const App: React.FC = () => {
 
     if (mode === 'hard') {
       baseList = baseList.filter((w) => (cardStreaks[w.id] || 0) <= -2 || learningIds.has(w.id) || hardIds.includes(w.id));
-      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords(decks).filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords(decks).filter((w) => masteredIds.has(w.id)) : [...DECKS[activeDeckKey as keyof typeof DECKS]];
+      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords(decks).filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords(decks).filter((w) => masteredIds.has(w.id)) : [...decks[activeDeckKey]];
     } else if (mode === 'mastered') {
       baseList = baseList.filter((w) => masteredIds.has(w.id));
-      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords(decks).filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords(decks).filter((w) => masteredIds.has(w.id)) : [...DECKS[activeDeckKey as keyof typeof DECKS]];
+      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords(decks).filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords(decks).filter((w) => masteredIds.has(w.id)) : [...decks[activeDeckKey]];
     }
     // 'mixed' = full deck (mastered words stay in so they get reviewed Duolingo-style)
 
@@ -732,19 +729,27 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {isLoadingDailyList && (
+            <div className="flex items-center justify-center gap-2 py-2 text-sm text-gray-500">
+              <i className="fa-solid fa-spinner animate-spin"></i>
+              <span>Loading your daily review...</span>
+            </div>
+          )}
           <div className="flex flex-col gap-3 w-full">
             <button
               onClick={() => activeDeckKey === 'DAILY_LIST' ? loadDailyList(30) : shuffleWithMode('hard')}
-              className="w-full py-4 bg-orange-500 text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-xl shadow-orange-100 active:scale-95 flex items-center justify-center gap-2"
+              disabled={isLoadingDailyList}
+              className="w-full py-4 bg-orange-500 text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-xl shadow-orange-100 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <i className="fa-solid fa-bolt"></i>
-              {activeDeckKey === 'DAILY_LIST' ? 'Reload Daily List' : 'Focus on Hard Words'}
+              <i className={`fa-solid ${isLoadingDailyList ? 'fa-spinner animate-spin' : 'fa-bolt'}`}></i>
+              {isLoadingDailyList ? 'Loading...' : activeDeckKey === 'DAILY_LIST' ? 'Reload Daily List' : 'Focus on Hard Words'}
             </button>
             <button
               onClick={() => activeDeckKey === 'DAILY_LIST' ? loadDailyList(30) : shuffleWithMode(practiceMode)}
-              className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-all shadow-xl active:scale-95"
+              disabled={isLoadingDailyList}
+              className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-all shadow-xl active:scale-95 disabled:opacity-50"
             >
-              {activeDeckKey === 'DAILY_LIST' ? 'Reload Daily List' : 'Restart Deck'}
+              {isLoadingDailyList ? 'Loading...' : activeDeckKey === 'DAILY_LIST' ? 'Reload Daily List' : 'Restart Deck'}
             </button>
           </div>
         </div>
