@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { Word, LanguageMode } from './types';
+import { DECKS } from './data/words';
 import Flashcard from './components/Flashcard';
 import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard, fetchDailyList, completeDailyList, fetchDecks, fetchDeckStats } from './api';
 
@@ -61,8 +62,10 @@ function getHardWordIds(cardStreaks: Record<string, number>, learningIds: Set<st
 
 const App: React.FC = () => {
   const [activeDeckKey, setActiveDeckKey] = useState<string>('CLASSIC');
-  const [decks, setDecks] = useState<Record<string, Word[]>>({});
-  const [deckList, setDeckList] = useState<{key: string; label: string}[]>([]);
+  const [decks, setDecks] = useState<Record<string, Word[]>>(DECKS);
+  const [deckList, setDeckList] = useState<{key: string; label: string}[]>(
+    Object.keys(DECKS).map(k => ({ key: k, label: k }))
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [mode, setMode] = useState<LanguageMode>(LanguageMode.EN_TO_IT);
@@ -142,7 +145,7 @@ const App: React.FC = () => {
       setDecks(map);
       setDeckList(list);
     }).catch(() => {
-      // API unavailable — stay with empty decks, user will need to wait for the API
+      // keep static DECKS fallback
     });
   }, []);
 
@@ -309,26 +312,43 @@ const App: React.FC = () => {
   const shuffleWithMode = (mode: PracticeMode) => {
     const hardIds = getHardWordIds(cardStreaks, learningIds, stats?.hardWordIds ?? [], failCounts);
     let baseList: Word[];
+    const allWords = getAllWords(decks);
 
     if (activeDeckKey === 'HARD_ALL') {
-      baseList = getAllWords(decks).filter((w) => hardIds.includes(w.id));
-      if (baseList.length === 0) baseList = getAllWords(decks);
+      baseList = allWords.filter((w) => hardIds.includes(w.id));
+      if (baseList.length === 0) baseList = allWords;
     } else if (activeDeckKey === 'EASY_ALL') {
-      baseList = getAllWords(decks).filter((w) => masteredIds.has(w.id));
-      if (baseList.length === 0) baseList = getAllWords(decks);
+      baseList = allWords.filter((w) => masteredIds.has(w.id));
+      if (baseList.length === 0) baseList = allWords;
     } else if (activeDeckKey === 'DAILY_LIST') {
       // Daily list is loaded separately via loadDailyList()
       return;
     } else {
-      baseList = [...decks[activeDeckKey]];
+      const deck = decks[activeDeckKey];
+      if (!deck || deck.length === 0) {
+        if (allWords.length > 0) {
+          baseList = allWords;
+        } else {
+          setShuffledVocab([]);
+          return;
+        }
+      } else {
+        baseList = [...deck];
+      }
     }
+
+    const safeDeckFallback = activeDeckKey === 'HARD_ALL'
+      ? allWords.filter((w) => hardIds.includes(w.id))
+      : activeDeckKey === 'EASY_ALL'
+        ? allWords.filter((w) => masteredIds.has(w.id))
+        : (decks[activeDeckKey] ? [...decks[activeDeckKey]] : allWords);
 
     if (mode === 'hard') {
       baseList = baseList.filter((w) => (cardStreaks[w.id] || 0) <= -2 || learningIds.has(w.id) || hardIds.includes(w.id));
-      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords(decks).filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords(decks).filter((w) => masteredIds.has(w.id)) : [...decks[activeDeckKey]];
+      if (baseList.length === 0) baseList = safeDeckFallback;
     } else if (mode === 'mastered') {
       baseList = baseList.filter((w) => masteredIds.has(w.id));
-      if (baseList.length === 0) baseList = activeDeckKey === 'HARD_ALL' ? getAllWords(decks).filter((w) => hardIds.includes(w.id)) : activeDeckKey === 'EASY_ALL' ? getAllWords(decks).filter((w) => masteredIds.has(w.id)) : [...decks[activeDeckKey]];
+      if (baseList.length === 0) baseList = safeDeckFallback;
     }
     // 'mixed' = full deck (mastered words stay in so they get reviewed Duolingo-style)
 
