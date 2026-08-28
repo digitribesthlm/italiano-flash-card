@@ -75,3 +75,11 @@ export async function completeDailyList(userId) {
   if (!res.ok) throw new Error('Failed to complete daily list');
   return res.json();
 }
+
+export async function deleteWord(wordId) {
+  const res = await fetch(`${API_BASE}/api/words/${encodeURIComponent(wordId)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete word');
+  return res.json();
+}

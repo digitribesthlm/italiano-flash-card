@@ -785,6 +785,40 @@ app.get('/api/deck-stats', async (req, res) => {
   }
 });
 
+// DELETE /api/words/:wordId — remove a word from all decks and user progress
+app.delete('/api/words/:wordId', async (req, res) => {
+  try {
+    const { wordId } = req.params;
+    if (!wordId) return res.status(400).json({ error: 'wordId required' });
+
+    const database = await getDb();
+    const decksResult = await database.collection(COLLECTION_DECKS).updateMany(
+      {},
+      { $pull: { words: { id: wordId } } }
+    );
+
+    await database.collection(COLLECTION_PROGRESS).updateMany(
+      {},
+      {
+        $pull: { masteredIds: wordId, learningIds: wordId },
+        $unset: {
+          [`wordStreaks.${wordId}`]: '',
+          [`failCounts.${wordId}`]: '',
+          [`wordEase.${wordId}`]: '',
+          [`wordInterval.${wordId}`]: '',
+          [`wordRepetitions.${wordId}`]: '',
+          [`wordNextReview.${wordId}`]: '',
+        },
+      }
+    );
+
+    return res.json({ ok: true, removed: decksResult.modifiedCount });
+  } catch (err) {
+    console.error('DELETE /api/words/:wordId', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

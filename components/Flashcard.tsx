@@ -2,7 +2,7 @@
 import React from 'react';
 import { FlashcardProps, LanguageMode } from '../types';
 
-const Flashcard: React.FC<FlashcardProps> = ({ word, isFlipped, onFlip, mode, onSpeak, isSpeaking, cardStreak }) => {
+const Flashcard: React.FC<FlashcardProps> = ({ word, isFlipped, onFlip, mode, onSpeak, isSpeaking, cardStreak, onDelete }) => {
   const isEnToIt = mode === LanguageMode.EN_TO_IT;
   const frontText = isEnToIt ? word.en : word.it;
   const backText = isEnToIt ? word.it : word.en;
@@ -45,7 +45,7 @@ const Flashcard: React.FC<FlashcardProps> = ({ word, isFlipped, onFlip, mode, on
       type="button"
       onClick={(e) => onSpeak(e, italianText)}
       disabled={isSpeaking}
-      className={`absolute top-8 right-8 w-12 h-12 rounded-full flex items-center justify-center transition-all z-30 shadow-lg active:scale-90 ${
+      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all z-30 shadow-lg active:scale-90 ${
         theme === 'light' 
           ? 'bg-white text-gray-400 hover:text-emerald-500 hover:shadow-emerald-100' 
           : 'bg-white/10 text-white/50 hover:text-emerald-400 hover:bg-white/20'
@@ -56,6 +56,25 @@ const Flashcard: React.FC<FlashcardProps> = ({ word, isFlipped, onFlip, mode, on
       ) : (
         <i className="fa-solid fa-volume-high text-lg"></i>
       )}
+    </button>
+  );
+
+  const DeleteButton = ({ theme }: { theme: 'light' | 'dark' }) => (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onDelete();
+      }}
+      title="Delete this card"
+      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all z-30 shadow-lg active:scale-90 ${
+        theme === 'light'
+          ? 'bg-white text-gray-300 hover:text-rose-500 hover:shadow-rose-100'
+          : 'bg-white/10 text-white/40 hover:text-rose-400 hover:bg-white/20'
+      }`}
+    >
+      <i className="fa-solid fa-trash-can text-lg"></i>
     </button>
   );
 
@@ -81,7 +100,10 @@ const Flashcard: React.FC<FlashcardProps> = ({ word, isFlipped, onFlip, mode, on
             </div>
           )}
 
-          {!isEnToIt && <SpeakerButton theme="light" />}
+          <div className="absolute top-8 right-8 flex items-center gap-2 z-30">
+            {!isEnToIt && <SpeakerButton theme="light" />}
+            <DeleteButton theme="light" />
+          </div>
 
           <p className="text-gray-300 text-[10px] mb-3 uppercase tracking-[0.2em] font-black">
             {isEnToIt ? 'English' : 'Italiano'}
@@ -103,7 +125,10 @@ const Flashcard: React.FC<FlashcardProps> = ({ word, isFlipped, onFlip, mode, on
              <i className="fa-solid fa-quote-right text-[10rem]"></i>
           </div>
 
-          {isEnToIt && <SpeakerButton theme="dark" />}
+          <div className="absolute top-8 right-8 flex items-center gap-2 z-30">
+            {isEnToIt && <SpeakerButton theme="dark" />}
+            <DeleteButton theme="dark" />
+          </div>
           
           <p className="text-emerald-400 text-[10px] mb-3 uppercase tracking-[0.2em] font-black">
             {isEnToIt ? 'Italiano' : 'English'}

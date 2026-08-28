@@ -23,4 +23,5 @@ export interface FlashcardProps {
   onSpeak: (e: React.MouseEvent, text: string) => void;
   isSpeaking: boolean;
   cardStreak: number;
+  onDelete: () => void;
 }

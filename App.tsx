@@ -4,7 +4,7 @@ import { GoogleGenAI, Modality } from '@google/genai';
 import { Word, LanguageMode } from './types';
 import { DECKS } from './data/words';
 import Flashcard from './components/Flashcard';
-import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard, fetchDailyList, completeDailyList, fetchDecks, fetchDeckStats } from './api';
+import { fetchProgress, postAttempt, fetchStats, postSession, fetchLeaderboard, fetchDailyList, completeDailyList, fetchDecks, fetchDeckStats, deleteWord } from './api';
 
 // Audio Helpers
 function decode(base64: string) {
@@ -486,6 +486,61 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteWord = useCallback(async () => {
+    const word = shuffledVocab[currentIndex];
+    if (!word) return;
+    const wordId = word.id;
+    const confirmed = window.confirm(
+      `Delete this card?\n\n"${word.en}" — "${word.it}"\n\nThis removes it permanently.`
+    );
+    if (!confirmed) return;
+
+    setDecks((prev) => {
+      const next: Record<string, Word[]> = { ...prev };
+      for (const key of Object.keys(next)) {
+        next[key] = next[key].filter((w) => w.id !== wordId);
+      }
+      return next;
+    });
+
+    const newList = shuffledVocab.filter((w) => w.id !== wordId);
+    setShuffledVocab(newList);
+    if (newList.length === 0) {
+      setIsSessionComplete(true);
+    } else {
+      setCurrentIndex((prev) => Math.min(prev, newList.length - 1));
+    }
+    setIsFlipped(false);
+    setAiContext(null);
+
+    setMasteredIds((prev) => {
+      const next = new Set(prev);
+      next.delete(wordId);
+      return next;
+    });
+    setLearningIds((prev) => {
+      const next = new Set(prev);
+      next.delete(wordId);
+      return next;
+    });
+    setCardStreaks((prev) => {
+      const { [wordId]: _, ...rest } = prev;
+      return rest;
+    });
+    setFailCounts((prev) => {
+      const { [wordId]: _, ...rest } = prev;
+      return rest;
+    });
+
+    if (currentUser) {
+      try {
+        await deleteWord(wordId);
+      } catch (err) {
+        console.error('Failed to delete word:', err);
+      }
+    }
+  }, [shuffledVocab, currentIndex, currentUser]);
+
   const handleSpeak = async (e: React.MouseEvent, text: string) => {
     e.preventDefault();
     e.stopPropagation(); 
@@ -628,11 +683,13 @@ const App: React.FC = () => {
     );
   }
 
-  if (shuffledVocab.length === 0) return null;
+  if (shuffledVocab.length === 0 && !isSessionComplete) return null;
 
   const currentWord = shuffledVocab[currentIndex];
-  const currentCardStreak = cardStreaks[currentWord.id] || 0;
-  const masteryStatus = masteredIds.has(currentWord.id) ? 'mastered' : learningIds.has(currentWord.id) ? 'learning' : null;
+  const currentCardStreak = currentWord ? cardStreaks[currentWord.id] || 0 : 0;
+  const masteryStatus = currentWord
+    ? masteredIds.has(currentWord.id) ? 'mastered' : learningIds.has(currentWord.id) ? 'learning' : null
+    : null;
   const totalInCurrentDeck = (activeDeckKey === 'HARD_ALL' || activeDeckKey === 'EASY_ALL' || activeDeckKey === 'DAILY_LIST')
     ? shuffledVocab.length
     : (decks[activeDeckKey] || []).length;
@@ -1124,6 +1181,7 @@ const App: React.FC = () => {
           onSpeak={handleSpeak}
           isSpeaking={isSpeaking}
           cardStreak={currentCardStreak}
+          onDelete={handleDeleteWord}
         />
 
         <div className={`mt-6 flex gap-4 transition-all duration-300 w-full max-w-sm ${isFlipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>

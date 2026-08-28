@@ -630,6 +630,35 @@ export default async function handler(req, res) {
       return json(res, { decks });
     }
 
+    // DELETE /api/words/:wordId — remove a word from all decks and user progress
+    if (req.method === 'DELETE' && path.startsWith('/words/')) {
+      const wordId = decodeURIComponent(path.slice('/words/'.length));
+      if (!wordId) return json(res, { error: 'wordId required' }, 400);
+
+      const db = await getDb();
+      const decksResult = await db.collection('flash_decks').updateMany(
+        {},
+        { $pull: { words: { id: wordId } } }
+      );
+
+      await db.collection('flash_progress').updateMany(
+        {},
+        {
+          $pull: { masteredIds: wordId, learningIds: wordId },
+          $unset: {
+            [`wordStreaks.${wordId}`]: '',
+            [`failCounts.${wordId}`]: '',
+            [`wordEase.${wordId}`]: '',
+            [`wordInterval.${wordId}`]: '',
+            [`wordRepetitions.${wordId}`]: '',
+            [`wordNextReview.${wordId}`]: '',
+          },
+        }
+      );
+
+      return json(res, { ok: true, removed: decksResult.modifiedCount });
+    }
+
     return json(res, { error: 'Not found' }, 404);
   } catch (err) {
     console.error(`API ${req.method} ${path}`, err);
