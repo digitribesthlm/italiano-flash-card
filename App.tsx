@@ -1034,9 +1034,9 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-      <header className="w-full bg-white border-b border-gray-200 py-3 px-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col">
+      <header className="w-full bg-white border-b border-gray-200 py-3 px-4 sticky top-0 z-50 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-col shrink-0">
             <h1 className="text-sm font-black text-gray-900 tracking-tight leading-none">Italiano Flash</h1>
             <div className="flex mt-1">
               <div className="w-2 h-1 bg-emerald-600"></div>
@@ -1044,9 +1044,29 @@ const App: React.FC = () => {
               <div className="w-2 h-1 bg-red-600"></div>
             </div>
           </div>
-          
-          <select 
-            value={activeDeckKey} 
+
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-100" title={`Best: ${bestScore}`}>
+              <i className="fa-solid fa-star text-yellow-500 text-[10px]"></i>
+              <span className="text-xs font-black text-yellow-700">{score}</span>
+              {bestScore > 0 && (
+                <span className="text-[9px] text-yellow-400 font-medium">{score >= bestScore && score > 0 ? '🔥' : ''}{bestScore}</span>
+              )}
+            </div>
+
+            <button
+              onClick={toggleMode}
+              className="bg-gray-900 text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 hover:bg-gray-800 transition-colors"
+            >
+              <i className="fa-solid fa-right-left"></i>
+              {mode === LanguageMode.EN_TO_IT ? 'EN' : 'IT'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <select
+            value={activeDeckKey}
             onChange={(e) => setActiveDeckKey(e.target.value as any)}
             className="bg-gray-100 text-[10px] font-black uppercase px-2 py-1 rounded-lg border-none focus:ring-2 focus:ring-emerald-500 text-gray-600 cursor-pointer"
           >
@@ -1088,9 +1108,6 @@ const App: React.FC = () => {
           >
             📊 Progress
           </button>
-        </div>
-        
-        <div className="flex items-center gap-2">
           {stats != null && (
             <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-full border border-slate-200 text-[10px] font-bold text-slate-600">
               <span title="Today">📅 {stats.dailyAttempts}</span>
@@ -1110,21 +1127,6 @@ const App: React.FC = () => {
               )}
             </div>
           )}
-          <div className="flex items-center gap-1.5 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-100" title={`Best: ${bestScore}`}>
-            <i className="fa-solid fa-star text-yellow-500 text-[10px]"></i>
-            <span className="text-xs font-black text-yellow-700">{score}</span>
-            {bestScore > 0 && (
-              <span className="text-[9px] text-yellow-400 font-medium">{score >= bestScore && score > 0 ? '🔥' : ''}{bestScore}</span>
-            )}
-          </div>
-          
-          <button 
-            onClick={toggleMode}
-            className="bg-gray-900 text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 hover:bg-gray-800 transition-colors"
-          >
-            <i className="fa-solid fa-right-left"></i>
-            {mode === LanguageMode.EN_TO_IT ? 'EN' : 'IT'}
-          </button>
         </div>
       </header>
 
